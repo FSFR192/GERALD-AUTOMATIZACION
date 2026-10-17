@@ -31,7 +31,7 @@ description: Cómo probar los flujos del BPMN TO-BE de Gerald Sport con pytest �
 ## Patrón HITL
 ```python
 grafo, s = construir()
-r = ejecutar_pedido(grafo, nuevo_pedido(cantidad=30), s)   # costo > umbral
+r = ejecutar_pedido(grafo, nuevo_pedido(cantidad=30), s)  # costo > umbral
 assert r["pausa"]["tipo"] == "revision_admin"
 r = reanudar(grafo, pedido_id, {"aprobado": True}, s)
 ```
