@@ -46,5 +46,5 @@ ignore = ["S101", "B008"]   # B008: patrón Depends() de FastAPI
 "tests/**" = ["S"]
 
 [tool.vercel]
-entrypoint = "src/gerald/api/main.py"
+entrypoint = "src.gerald.api.main:app"
 
