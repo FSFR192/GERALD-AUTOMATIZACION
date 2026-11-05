@@ -18,7 +18,7 @@ def vigilar_sla(grafo, servicios) -> dict[str, list[str]]:
 
     for pedido_id in repo.vencidos("en_revision", p.sla_revision_horas):
         servicios.notificador.enviar(
-            "recordatorio",
+            "recordatorio", 
             servicios.correo_admin,
             pedido_id,
             {"motivo": "revisión pendiente > 24 h (escalado)"},

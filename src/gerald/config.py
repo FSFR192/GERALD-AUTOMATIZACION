@@ -23,7 +23,7 @@ class Parametros(BaseModel):
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="GERALD_", extra="ignore")
 
-    modo: Literal["produccion", "demo"] = "produccion"
+    modo: Literal["produccion", "demo"] = "demo"
     database_url: SecretStr = SecretStr("postgresql://gerald:gerald@localhost:5432/gerald")
     jwt_secreto: SecretStr = SecretStr("solo-desarrollo-local-cambiar-en-env-0000")  # ≥ 32 bytes
     llm_proveedor: Literal["google", "ollama"] = "google"

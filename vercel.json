@@ -1,16 +1,9 @@
 {
   "version": 2,
-  "builds": [
+  "rewrites": [
     {
-      "src": "src/gerald/api/main.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "src/gerald/api/main.py"
+      "source": "/(.*)",
+      "destination": "/api/index"
     }
   ]
 }
-
