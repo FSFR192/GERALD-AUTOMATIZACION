@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerald Sport · Informe Técnico Ecosistema LangChain</title>
+    <!-- Google Fonts & Font Awesome Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --primary-light: #eff6ff;
+            --secondary: #0f172a;
+            --accent: #3b82f6;
+            --success: #10b981;
+            --success-light: #ecfdf5;
+            --warning: #f59e0b;
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-300: #cbd5e1;
+            --slate-600: #475569;
+            --slate-700: #334155;
+            --slate-800: #1e293b;
+            --slate-900: #0f172a;
+            --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+            --card-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--slate-50);
+            color: var(--slate-800);
+            line-height: 1.6;
+            scroll-behavior: smooth;
+        }
+
+        /* Top Bar */
+        .top-navbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--slate-200);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 1.15rem;
+            color: var(--slate-900);
+            text-decoration: none;
+        }
+
+        .brand-badge {
+            background: linear-gradient(135deg, var(--primary), #6366f1);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--slate-600);
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .btn-pdf {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .btn-pdf:hover {
+            background: var(--primary-dark);
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 30px 20px 80px 20px;
+        }
+
+        /* Hero / Header */
+        .hero {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            border: 1px solid var(--slate-200);
+            box-shadow: var(--card-shadow);
+            margin-bottom: 35px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #2563eb, #6366f1, #10b981);
+        }
+
+        .hero-title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--slate-900);
+            line-height: 1.2;
+            margin-bottom: 12px;
+        }
+
+        .hero-subtitle {
+            font-size: 1.15rem;
+            color: var(--slate-600);
+            margin-bottom: 24px;
+        }
+
+        .badge-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .pill {
+            background: var(--slate-100);
+            color: var(--slate-700);
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid var(--slate-200);
+        }
+
+        .pill-primary {
+            background: var(--primary-light);
+            color: var(--primary);
+            border-color: #bfdbfe;
+        }
+
+        .pill-success {
+            background: var(--success-light);
+            color: #065f46;
+            border-color: #a7f3d0;
+        }
+
+        .metadata-box {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            background: var(--slate-50);
+            border: 1px solid var(--slate-200);
+            border-radius: 12px;
+            padding: 18px 24px;
+        }
+
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .meta-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: var(--slate-600);
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .meta-val {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--slate-900);
+        }
+
+        /* Section Cards */
+        .section-card {
+            background: white;
+            border-radius: 16px;
+            padding: 35px 40px;
+            border: 1px solid var(--slate-200);
+            box-shadow: var(--card-shadow);
+            margin-bottom: 35px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 24px;
+            padding-bottom: 14px;
+            border-bottom: 2px solid var(--slate-100);
+        }
+
+        .section-icon {
+            width: 44px;
+            height: 44px;
+            background: var(--primary-light);
+            color: var(--primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .section-title {
+            font-size: 1.45rem;
+            font-weight: 700;
+            color: var(--slate-900);
+        }
+
+        /* Image Display Box */
+        .image-card {
+            background: var(--slate-50);
+            border: 1px solid var(--slate-200);
+            border-radius: 12px;
+            padding: 16px;
+            margin: 20px 0;
+            text-align: center;
+            box-shadow: var(--card-shadow);
+        }
+
+        .image-card img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            border: 1px solid var(--slate-300);
+            display: block;
+            margin: 0 auto;
+            background: white;
+        }
+
+        .image-card.scrollable-img {
+            overflow-x: auto;
+        }
+
+        .image-caption {
+            font-size: 0.85rem;
+            color: var(--slate-600);
+            margin-top: 10px;
+            font-weight: 500;
+        }
+
+        /* Tables */
+        .table-responsive {
+            overflow-x: auto;
+            margin: 20px 0;
+            border-radius: 10px;
+            border: 1px solid var(--slate-200);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+            text-align: left;
+        }
+
+        th {
+            background: var(--slate-100);
+            color: var(--slate-700);
+            font-weight: 700;
+            padding: 12px 16px;
+            border-bottom: 2px solid var(--slate-200);
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--slate-200);
+            vertical-align: top;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background-color: var(--slate-50);
+        }
+
+        /* Code Blocks */
+        pre {
+            background: var(--slate-900);
+            color: #e2e8f0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            padding: 18px 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+            margin: 16px 0;
+            border: 1px solid #334155;
+            line-height: 1.5;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--slate-100);
+            color: #7c3aed;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+
+        /* Info & Alert Badges */
+        .callout {
+            border-left: 4px solid var(--primary);
+            background: var(--primary-light);
+            padding: 16px 20px;
+            border-radius: 0 10px 10px 0;
+            margin: 20px 0;
+            font-size: 0.92rem;
+        }
+
+        .callout-success {
+            border-color: var(--success);
+            background: var(--success-light);
+            color: #064e3b;
+        }
+
+        .callout-warning {
+            border-color: var(--warning);
+            background: #fffbeb;
+            color: #92400e;
+        }
+
+        /* Grid Cards */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 18px;
+            margin: 20px 0;
+        }
+
+        .subcard {
+            background: var(--slate-50);
+            border: 1px solid var(--slate-200);
+            border-radius: 12px;
+            padding: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .subcard:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--card-shadow);
+        }
+
+        .subcard-title {
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--slate-900);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Print styles for PDF */
+        @media print {
+            body {
+                background: white;
+                color: black;
+            }
+            .top-navbar, .btn-pdf {
+                display: none;
+            }
+            .container {
+                max-width: 100%;
+                padding: 0;
+            }
+            .section-card {
+                box-shadow: none;
+                border: 1px solid #ddd;
+                page-break-inside: avoid;
+                margin-bottom: 25px;
+            }
+            .image-card {
+                box-shadow: none;
+                border: 1px solid #ccc;
+            }
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation -->
+    <header class="top-navbar">
+        <a href="#" class="brand">
+            <span class="brand-badge">GERALD SPORT</span>
+            <span>Sistema Multiagente</span>
+        </a>
+        <nav>
+            <ul class="nav-links">
+                <li><a href="#diagramas"><i class="fa-solid fa-sitemap"></i> Diagramas</a></li>
+                <li><a href="#lcel"><i class="fa-solid fa-code"></i> LCEL</a></li>
+                <li><a href="#langgraph"><i class="fa-solid fa-diagram-project"></i> LangGraph</a></li>
+                <li><a href="#langsmith"><i class="fa-solid fa-chart-line"></i> LangSmith</a></li>
+                <li><a href="#deep-agents"><i class="fa-solid fa-robot"></i> Deep Agents</a></li>
+                <li><a href="#capas"><i class="fa-solid fa-layer-group"></i> 4 Capas</a></li>
+            </ul>
+        </nav>
+        <button class="btn-pdf" onclick="window.print()">
+            <i class="fa-solid fa-print"></i> Guardar como PDF
+        </button>
+    </header>
+
+    <div class="container">
+
+        <!-- Portada / Hero -->
+        <section class="hero">
+            <h1 class="hero-title">Sistema Multiagente de Contratación de Pedidos y Coordinación de Materiales</h1>
+            <p class="hero-subtitle">Informe Técnico Integral del Ecosistema LangChain, LangGraph y LangSmith</p>
+            
+            <div class="badge-grid">
+                <span class="pill pill-primary"><i class="fa-solid fa-check-circle"></i> LangGraph v1.0 StateGraph</span>
+                <span class="pill pill-primary"><i class="fa-solid fa-cube"></i> LangChain Core v0.3</span>
+                <span class="pill pill-success"><i class="fa-solid fa-eye"></i> LangSmith Tracing Verificado</span>
+                <span class="pill"><i class="fa-solid fa-shield-halved"></i> Human-In-The-Loop (HITL)</span>
+                <span class="pill"><i class="fa-solid fa-brain"></i> Gemini 3.8 Flash + Llava</span>
+            </div>
+
+            <div class="metadata-box">
+                <div class="meta-item">
+                    <span class="meta-label">Asignatura</span>
+                    <span class="meta-val">Automatización de Procesos</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Caso de Negocio</span>
+                    <span class="meta-val">Gerald Sport (Taller Textil)</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Arquitectura</span>
+                    <span class="meta-val">Deep Agent Supervisor</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Estado del Entregable</span>
+                    <span class="meta-val" style="color: var(--success);"><i class="fa-solid fa-circle-check"></i> 100% Completo</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 0: DIAGRAMAS DEL PROYECTO -->
+        <section id="diagramas" class="section-card">
+            <div class="section-header">
+                <div class="section-icon"><i class="fa-solid fa-sitemap"></i></div>
+                <h2 class="section-title">Diagramas del Sistema</h2>
+            </div>
+            
+            <p>Se presentan los dos diagramas maestros que rigen la arquitectura y la ejecución del sistema multiagente:</p>
+
+            <div class="image-card">
+                <img src="diagrama_arquitectura.jpg" alt="Arquitectura del Proyecto Gerald Sport" loading="lazy">
+                <div class="image-caption"><strong>Figura 1:</strong> Arquitectura Multicapa del Sistema Gerald Sport: Portal FastAPI, Puerta de Seguridad, Deep Agent Supervisor (LangGraph), Capa de Decisión (Sistema 1 + Política Determinista S/ 300), Compuertas HITL, Agentes A0-A4, Gestión de Errores por Clase, Capa Cognitiva (Gemini Vision) y Gobernanza LangSmith.</div>
+            </div>
+
+            <div class="image-card scrollable-img">
+                <img src="diagrama_bpmn.jpg" alt="Diagrama BPMN TO-BE" loading="lazy">
+                <div class="image-caption"><strong>Figura 2:</strong> Diagrama de Proceso BPMN TO-BE: Carriles para Cliente, Sistema (Webhook / Automatización) y Administrador, con deduplicación SHA-256, pausas HITL de revisión y SLA escalable de 24 horas.</div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 1: TÉRMINOS LCEL -->
+        <section id="lcel" class="section-card">
+            <div class="section-header">
+                <div class="section-icon"><i class="fa-solid fa-code"></i></div>
+                <h2 class="section-title">1. Términos LCEL Identificados en el Código</h2>
+            </div>
+
+            <p>El <strong>LangChain Expression Language (LCEL)</strong> constituye la base sintáctica para componer <em>Runnables</em>, vincular configuraciones de metadatos, serializar y transformar salidas con tipado estricto mediante Pydantic:</p>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Término LCEL</th>
+                            <th>Ubicación en Archivos</th>
+                            <th>Líneas</th>
+                            <th>Descripción y Propósito en el Proyecto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>ChatModel</code></td>
+                            <td><code>src/gerald/llm.py</code></td>
+                            <td>12-26</td>
+                            <td>Instancia de <code>ChatGoogleGenerativeAI</code> o <code>ChatOllama</code> que actúa como el Runnable ejecutable central.</td>
+                        </tr>
+                        <tr>
+                            <td><code>.with_config()</code></td>
+                            <td><code>src/gerald/llm.py</code></td>
+                            <td>23, 26</td>
+                            <td>Inyecta etiquetas semánticas (ej. <code>tags=["rol:vision"]</code>, <code>tags=["rol:evaluador"]</code>) para trazabilidad en LangSmith.</td>
+                        </tr>
+                        <tr>
+                            <td><code>.with_structured_output()</code></td>
+                            <td><code>src/gerald/agents/a2_boceto.py</code></td>
+                            <td>71, 98</td>
+                            <td>Encadena el modelo al esquema Pydantic <code>InterpretacionBoceto</code> y <code>TextosBoceto</code> (OCR) garantizando salida validada.</td>
+                        </tr>
+                        <tr>
+                            <td><code>.with_structured_output()</code></td>
+                            <td><code>src/gerald/decision/decide.py</code></td>
+                            <td>54</td>
+                            <td>Encadena el evaluador LLM al contrato <code>Decision</code> (evalúa coherencia, puntaje y confianza numérica).</td>
+                        </tr>
+                        <tr>
+                            <td><code>.invoke()</code></td>
+                            <td><code>src/gerald/llm.py</code></td>
+                            <td>32</td>
+                            <td>Método de ejecución sincrónica del LCEL: <code>modelo.invoke(mensajes)</code> integrado con traducción de fallos a P05.</td>
+                        </tr>
+                        <tr>
+                            <td><code>SystemMessage</code></td>
+                            <td><code>src/gerald/agents/a2_boceto.py</code></td>
+                            <td>74, 105</td>
+                            <td>Mensaje de rol de sistema para fijar el contexto estricto del agente de diseño sin admitir inyecciones.</td>
+                        </tr>
+                        <tr>
+                            <td><code>HumanMessage</code></td>
+                            <td><code>src/gerald/agents/a2_boceto.py</code></td>
+                            <td>57-62</td>
+                            <td>Mensaje multimodal que combina texto descriptivo con la URL en formato Base64 de la imagen del boceto.</td>
+                        </tr>
+                        <tr>
+                            <td><code>BaseTool</code> / <code>@tool</code></td>
+                            <td><code>src/gerald/tools/almacen.py</code></td>
+                            <td>5, 31-57</td>
+                            <td>Decorador y clase base del LCEL para empaquetar funciones Python como herramientas invocables por agentes.</td>
+                        </tr>
+                        <tr>
+                            <td><code>args_schema</code></td>
+                            <td><code>src/gerald/tools/almacen.py</code></td>
+                            <td>31, 36, 41</td>
+                            <td>Validador estricto de parámetros de herramientas usando esquemas Pydantic (<code>IdsMateriales</code>, <code>PrendaTalla</code>).</td>
+                        </tr>
+                        <tr>
+                            <td><code>run_name</code> / <code>metadata</code></td>
+                            <td><code>src/gerald/observabilidad.py</code></td>
+                            <td>22-23</td>
+                            <td>Diccionario de configuración de runtime pasado al invocador del grafo para identificar cada pedido en LangSmith.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 style="margin-top: 20px;">Código Fuente Representativo: Cadena LCEL del Agente A2 Boceto</h3>
+            <pre><code># src/gerald/agents/a2_boceto.py (Líneas 65-80)
+class InterpreteVision:
+    """Implementación de producción del puerto InterpreteBoceto con Gemini Visión."""
+    def __init__(self) -> None:
+        from gerald.llm import get_llm
+        # LCEL: Modelo de lenguaje + OutputParser estructurado Pydantic
+        self._llm = get_llm("vision").with_structured_output(InterpretacionBoceto)
+
+    def __call__(self, pedido: PedidoEntrada) -> InterpretacionBoceto:
+        from langchain_core.messages import SystemMessage
+        from gerald.llm import invocar_con_errores
+
+        # Invocación LCEL con mensajes multimodales (Sistema + Imagen Base64)
+        borrador = invocar_con_errores(
+            self._llm,
+            [SystemMessage(SISTEMA), _mensaje_boceto(pedido)],
+            AGENTE
+        )
+        return borrador.model_copy(update={"agente": AGENTE})</code></pre>
+        </section>
+
+        <!-- SECCIÓN 2: LANGGRAPH -->
+        <section id="langgraph" class="section-card">
+            <div class="section-header">
+                <div class="section-icon"><i class="fa-solid fa-diagram-project"></i></div>
+                <h2 class="section-title">2. LangGraph: Grado, Puntos HITL y Compatibilidad con BPMN TO-BE</h2>
+            </div>
+
+            <p>El flujo está construido con <code>StateGraph(GeraldState)</code> en <code>src/gerald/graph.py</code>. Posee 19 nodos con tolerancia a fallos mediante <code>RetryPolicy</code> y persistencia con <code>PostgresSaver</code> / <code>MemorySaver</code>.</p>
+
+            <h3 style="margin-top: 20px;">2.1 Análisis Topológico de Grado de los Nodos</h3>
+            <p>El grado cuantifica la complejidad de interconexión (entradas y salidas de cada nodo):</p>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre del Nodo</th>
+                            <th>Grado Entrada</th>
+                            <th>Grado Salida</th>
+                            <th>Grado Total</th>
+                            <th>Función dentro del Grafo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>a0_ingesta</code></td><td>1 (START)</td><td>2</td><td><strong>3</strong></td><td>Validación semántica inicial del pedido</td></tr>
+                        <tr><td><code>a1_recepcion</code></td><td>1</td><td>2</td><td><strong>3</strong></td><td>Cálculo de clave SHA-256 y deduplicación</td></tr>
+                        <tr><td><code>informar_duplicado</code></td><td>1</td><td>1 (END)</td><td><strong>2</strong></td><td>Notifica que el pedido ya existe y finaliza</td></tr>
+                        <tr><td><code>a2_boceto</code></td><td>1</td><td>2</td><td><strong>3</strong></td><td>Interpretación visual con LLM de Visión</td></tr>
+                        <tr><td><code>a3_calcular</code></td><td>1</td><td>2</td><td><strong>3</strong></td><td>Cálculo de recetas, mermas e insumos requeridos</td></tr>
+                        <tr><td><code>evaluar</code></td><td>1</td><td>3</td><td><strong>4</strong></td><td>Compuerta triple según confianza y costo</td></tr>
+                        <tr style="background-color: #fef2f2; font-weight: 600;"><td><code>enviar_observaciones</code></td><td>5</td><td>1 (END)</td><td><strong>6</strong></td><td>Sumidero principal (Mayor conectividad del grafo)</td></tr>
+                        <tr><td><code>solicitar_revision</code></td><td>1</td><td>1</td><td><strong>2</strong></td><td>Notificación formal al administrador</td></tr>
+                        <tr style="background-color: #fffbeb;"><td><code>revision_admin</code> ⚡</td><td>1</td><td>2</td><td><strong>3</strong></td><td><strong>HITL 1: Revisión y aprobación del Administrador</strong></td></tr>
+                        <tr><td><code>cotizar</code></td><td>2</td><td>1</td><td><strong>3</strong></td><td>Genera y emite cotización al cliente</td></tr>
+                        <tr style="background-color: #fffbeb;"><td><code>aceptacion_cliente</code> ⚡</td><td>1</td><td>2</td><td><strong>3</strong></td><td><strong>HITL 2: Aceptación con 1 clic del Cliente</strong></td></tr>
+                        <tr><td><code>cerrar_no_contratado</code></td><td>1</td><td>1 (END)</td><td><strong>2</strong></td><td>Cierre formal por rechazo de cotización</td></tr>
+                        <tr><td><code>registrar_contrato</code></td><td>1</td><td>1</td><td><strong>2</strong></td><td>Registra contrato legal del pedido</td></tr>
+                        <tr><td><code>verificar_stock</code></td><td>2</td><td>2</td><td><strong>4</strong></td><td>Consulta disponibilidad (Participa en ciclo de compras)</td></tr>
+                        <tr><td><code>requerir_abastecimiento</code></td><td>2</td><td>1</td><td><strong>3</strong></td><td>Genera orden de compra a proveedores</td></tr>
+                        <tr style="background-color: #fffbeb;"><td><code>espera_abastecimiento</code> ⚡</td><td>1</td><td>1</td><td><strong>2</strong></td><td><strong>HITL 3: Confirmación de ingreso de material (Almacén)</strong></td></tr>
+                        <tr><td><code>reservar</code></td><td>1</td><td>2</td><td><strong>3</strong></td><td>Reserva transaccional en PostgreSQL (FOR UPDATE)</td></tr>
+                        <tr><td><code>generar_orden</code></td><td>1</td><td>1</td><td><strong>2</strong></td><td>Crea orden de confección para el taller</td></tr>
+                        <tr><td><code>notificar_confirmacion</code></td><td>1</td><td>1 (END)</td><td><strong>2</strong></td><td>Emite fecha estimada de entrega y finiquita</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="callout callout-warning">
+                <strong>Análisis de Topología:</strong> El nodo <code>enviar_observaciones</code> posee el <strong>Grado Máximo de 6</strong> debido a que centraliza las excepciones y rechazos de 5 fases diferentes del proceso.
+            </div>
+
+            <h3 style="margin-top: 25px;">2.2 Puntos Human-In-The-Loop (HITL)</h3>
+            <div class="cards-grid">
+                <div class="subcard">
+                    <div class="subcard-title"><i class="fa-solid fa-user-shield" style="color: var(--primary);"></i> HITL 1: Admin</div>
+                    <p style="font-size: 0.85rem; color: var(--slate-600); margin-bottom: 8px;"><strong>Nodo:</strong> <code>revision_admin</code></p>
+                    <p style="font-size: 0.85rem;">Se activa ante pedidos con confianza media/baja o costos mayores a <strong>S/ 300.00</strong>. Pausa con <code>interrupt()</code> y reanuda en <code>POST /revision/{id}</code> con SLA de 24h.</p>
+                </div>
+                <div class="subcard">
+                    <div class="subcard-title"><i class="fa-solid fa-user-check" style="color: var(--success);"></i> HITL 2: Cliente</div>
+                    <p style="font-size: 0.85rem; color: var(--slate-600); margin-bottom: 8px;"><strong>Nodo:</strong> <code>aceptacion_cliente</code></p>
+                    <p style="font-size: 0.85rem;">El cliente recibe la cotización formal y acepta con 1 clic en el portal. Reanuda mediante <code>POST /pedidos/{id}/aceptacion</code>.</p>
+                </div>
+                <div class="subcard">
+                    <div class="subcard-title"><i class="fa-solid fa-warehouse" style="color: var(--warning);"></i> HITL 3: Almacén</div>
+                    <p style="font-size: 0.85rem; color: var(--slate-600); margin-bottom: 8px;"><strong>Nodo:</strong> <code>espera_abastecimiento</code></p>
+                    <p style="font-size: 0.85rem;">Se detiene cuando hay quiebre de stock de insumos. Se reanuda en cuanto almacén registra la entrada en <code>POST /almacen/ingresos</code>.</p>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 25px;">2.3 Compatibilidad con el BPMN TO-BE</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Carril / Elemento BPMN TO-BE</th>
+                            <th>Mapeo en LangGraph</th>
+                            <th>Compatibilidad</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Carriles Cliente, Sistema y Admin</td><td>Aislamiento de roles en endpoints FastAPI y metadatos en <code>traza.py</code>.</td><td><span class="pill pill-success">100% Compatible</span></td></tr>
+                        <tr><td>Compuerta ¿Datos completos y válidos?</td><td>Función <code>ruta_si_observado</code> derivando a <code>enviar_observaciones</code>.</td><td><span class="pill pill-success">100% Compatible</span></td></tr>
+                        <tr><td>Compuerta ¿Pedido duplicado?</td><td>Función <code>ruta_tras_recepcion</code> con hash SHA-256 en base de datos.</td><td><span class="pill pill-success">100% Compatible</span></td></tr>
+                        <tr><td>Compuertas de Política (Confianza / Umbral)</td><td>Función <code>ruta_tras_politica</code> gobernada por el módulo <code>politica.py</code>.</td><td><span class="pill pill-success">100% Compatible</span></td></tr>
+                        <tr><td>Temporizadores SLA de 24h y 48h</td><td>Vigilancia asíncrona periódica cada 15 min en <code>src/gerald/tareas.py</code>.</td><td><span class="pill pill-success">100% Compatible</span></td></tr>
+                        <tr><td>Eventos de Error de Sistema / Transitorios</td><td>Jerarquía de excepciones en <code>errores.py</code> y reintentos automáticos.</td><td><span class="pill pill-success">100% Compatible</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 3: LANGSMITH -->
+        <section id="langsmith" class="section-card">
+            <div class="section-header">
+                <div class="section-icon"><i class="fa-solid fa-chart-line"></i></div>
+                <h2 class="section-title">3. Monitoreo en LangSmith de la Ejecución Real</h2>
+            </div>
+
+            <div class="callout callout-success">
+                <strong>Telemetría en Vivo Verificada:</strong> El proyecto <code>gerald-sport</code> registró 20 ejecuciones exitosas y pausas controladas, monitoreadas a través de la plataforma oficial de LangSmith.
+            </div>
+
+            <div class="image-card">
+                <img src="captura_langsmith_dashboard.png" alt="Dashboard de LangSmith del Proyecto Gerald Sport" loading="lazy">
+                <div class="image-caption"><strong>Figura 3:</strong> Panel de control en LangSmith: Invocación del modelo <code>gemini-3.8-flash</code> con métricas de latencia de 0.1s y tasa de éxito verificada.</div>
+            </div>
+
+            <div class="image-card">
+                <img src="captura_langsmith_trace.jpg" alt="Árbol de Trazas LangSmith y Pausa HITL" loading="lazy">
+                <div class="image-caption"><strong>Figura 4:</strong> Árbol de trazas en cascada (Trace Tree) del pedido <code>P-EXITOSO-100</code>. Se aprecia la secuencia de nodos ejecutados (<code>a0_ingesta</code> &rarr; <code>a1_recepcion</code> &rarr; <code>a2_boceto</code> &rarr; <code>a3_calcular</code> &rarr; <code>evaluar</code> &rarr; <code>solicitar_revision</code>) y la interrupción controlada en el nodo HITL <code>revision_admin</code> con sus contratos Pydantic.</div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 4: DEEP AGENTS -->
+        <section id="deep-agents" class="section-card">
+            <div class="section-header">
+                <div class="section-icon"><i class="fa-solid fa-robot"></i></div>
+                <h2 class="section-title">4. Deep Agents Generados</h2>
+            </div>
+
+            <p>La arquitectura adopta el patrón <strong>Deep Agent Supervisor</strong>, compuesto por un orquestador que gobierna la delegación sobre 5 agentes especializados con mínimo privilegio de herramientas (<code>@tool</code>):</p>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Deep Agent</th>
+                            <th>Archivo Fuente</th>
+                            <th>Rol y Responsabilidad Funcional</th>
+                            <th>Herramientas Asignadas (<code>@tool</code>)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>GERALD-ORCH</strong></td>
+                            <td><code>src/gerald/agents/orquestador.py</code></td>
+                            <td>Orquestador supervisor del StateGraph. Aplica la política determinista y gobierna las pausas HITL.</td>
+                            <td><code>leer_parametros</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>A0 Ingesta</strong></td>
+                            <td><code>src/gerald/agents/a0_ingesta.py</code></td>
+                            <td>Validación semántica de pedidos, verificación de límites de prendas y consistencia de datos.</td>
+                            <td>Validadores Pydantic internos</td>
+                        </tr>
+                        <tr>
+                            <td><strong>A1 Recepción</strong></td>
+                            <td><code>src/gerald/agents/a1_recepcion.py</code></td>
+                            <td>Generación del hash SHA-256 de idempotencia, deduplicación y acuse formal.</td>
+                            <td><code>calcular_hash</code>, <code>buscar_pedido_por_clave</code>, <code>encolar_pendiente</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>A2 Boceto</strong></td>
+                            <td><code>src/gerald/agents/a2_boceto.py</code></td>
+                            <td>Interpretación del diseño mediante visión computacional multimodal (Gemini / Llava) y OCR.</td>
+                            <td><code>interpretar_boceto</code>, <code>extraer_texto_ocr</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>A3 Materiales</strong></td>
+                            <td><code>src/gerald/agents/a3_materiales.py</code></td>
+                            <td>Cálculo de consumo textil según catálogo y mermas, control de stock y reserva transaccional.</td>
+                            <td><code>leer_catalogo</code>, <code>leer_recetas</code>, <code>consultar_stock</code>, <code>reservar_materiales</code>, <code>crear_requerimiento_abastecimiento</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>A4 Registro</strong></td>
+                            <td><code>src/gerald/agents/a4_registro.py</code></td>
+                            <td>Generación de cotizaciones formales, contratos de confección, hojas de producción y correos.</td>
+                            <td><code>enviar_correo</code>, <code>generar_hoja_materiales</code>, <code>registrar_contrato</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h4 style="margin-top: 20px;">Subagentes de Desarrollo (Carpeta <code>.claude/agents/</code>):</h4>
+            <div class="badge-grid" style="margin-top: 10px;">
+                <span class="pill"><i class="fa-solid fa-compass-drafting"></i> arquitecto-multiagente.md</span>
+                <span class="pill"><i class="fa-solid fa-laptop-code"></i> desarrollador-agentes.md</span>
+                <span class="pill"><i class="fa-solid fa-database"></i> ingeniero-datos.md</span>
+                <span class="pill"><i class="fa-solid fa-user-lock"></i> auditor-seguridad.md</span>
+                <span class="pill"><i class="fa-solid fa-vial-circle-check"></i> qa-flujos.md</span>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 5: LAS CUATRO CAPAS -->
+        <section id="capas" class="section-card">
+            <div class="section-header">
+                <div class="section-icon"><i class="fa-solid fa-layer-group"></i></div>
+                <h2 class="section-title">5. Las Cuatro Capas del Ecosistema LangChain</h2>
+            </div>
+
+            <div class="cards-grid">
+                <div class="subcard">
+                    <div class="subcard-title"><span style="color: var(--primary);">1.</span> LangChain Core</div>
+                    <p style="font-size: 0.85rem; color: var(--slate-600); margin-bottom: 6px;"><code>langchain-core >= 0.3</code></p>
+                    <p style="font-size: 0.85rem;">Primitivas base: clase <code>Runnable</code>, decorador <code>@tool</code>, tipado de mensajes (<code>SystemMessage</code>, <code>HumanMessage</code>) y serialización de checkpoints con <code>JsonPlusSerializer</code>.</p>
+                </div>
+                <div class="subcard">
+                    <div class="subcard-title"><span style="color: var(--primary);">2.</span> Integraciones LangChain</div>
+                    <p style="font-size: 0.85rem; color: var(--slate-600); margin-bottom: 6px;"><code>langchain-google-genai</code>, <code>langchain-ollama</code></p>
+                    <p style="font-size: 0.85rem;">Conexión a modelos fundacionales: <code>ChatGoogleGenerativeAI</code> (Gemini 3.8 Flash con visión), <code>ChatOllama</code> (Llava local) y salida tipada con <code>.with_structured_output()</code>.</p>
+                </div>
+                <div class="subcard">
+                    <div class="subcard-title"><span style="color: var(--primary);">3.</span> LangGraph</div>
+                    <p style="font-size: 0.85rem; color: var(--slate-600); margin-bottom: 6px;"><code>langgraph >= 1.0</code>, <code>checkpoint-postgres</code></p>
+                    <p style="font-size: 0.85rem;">Orquestación con estado cíclico mediante <code>StateGraph(GeraldState)</code>, persistencia en PostgreSQL / memoria, políticas de reintento (<code>RetryPolicy</code>) e interrupciones HITL (<code>interrupt()</code>).</p>
+                </div>
+                <div class="subcard">
+                    <div class="subcard-title"><span style="color: var(--primary);">4.</span> LangSmith</div>
+                    <p style="font-size: 0.85rem; color: var(--slate-600); margin-bottom: 6px;"><code>langsmith >= 0.2</code></p>
+                    <p style="font-size: 0.85rem;">Plataforma de observabilidad y gobernanza de producción: registro de latencias, auditoría de pasos, visualización en cascada (Trace Tree) y anonimización de datos sensibles.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Conclusión -->
+        <div class="callout callout-success" style="text-align: center; font-size: 1rem; padding: 25px;">
+            <i class="fa-solid fa-circle-check" style="font-size: 1.5rem; margin-bottom: 10px; display: block;"></i>
+            <strong>Sustentación Técnica Completada:</strong> El proyecto Gerald Sport cumple en su totalidad con los criterios exigidos, demostrando código en producción, diagramas BPMN/Arquitectura y monitoreo activo en LangSmith.
+        </div>
+
+    </div>
+
+</body>
+</html>
+
