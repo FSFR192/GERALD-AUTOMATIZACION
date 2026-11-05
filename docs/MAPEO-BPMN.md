@@ -34,7 +34,9 @@ Fuente: `docs/bpmn/TO-BE_GeraldSport_Previo.bpmn`. Toda fila debe tener prueba (
 | Capa (diagrama de arquitectura) | Implementación | Prueba |
 |---|---|---|
 | Herramientas @tool por agente (P06) | `tools/__init__.tools_de` + `tools/{recepcion,vision,almacen,notificacion}.py` | test_tools |
+| Traza del sistema multiagente (qué agente hizo qué) | `traza.traza` desde los checkpoints de LangGraph → `actividad` en `GET /pedidos/{id}` y en el portal | test_portal |
 | Bucle de calibración | `calibracion.informe` · `tareas.calibracion_semanal` · `GET /calibracion` | test_calibracion |
 | Gobernanza LangSmith | `observabilidad.configurar_trazas` (entradas/salidas ocultas) · metadatos por pedido | test_demo |
 | Libro de reglas (7 materiales, 14 recetas, parámetros) | `db/semilla.py` → `db/init.py` · `db/postgres.cargar_parametros` | test_semilla, test_postgres |
-| Modo demo sin Postgres | `demo.py` (`GERALD_MODO=demo`) | test_demo |
+| Modo demo sin Postgres | `demo.py` (`GERALD_MODO=demo`) · `POST /demo/sesion` (solo demo) | test_demo, test_portal |
+| Portal de pedidos (interfaz por carril) | `web/` servido en `/app`: Cliente (nuevo pedido, mis pedidos, aceptación 1 clic), Administrador (bandeja con boceto y borrador), Almacén (faltantes), Gobernanza (calibración) · `GET /pedidos`, `/catalogo`, `/pedidos/{id}/boceto`, `/almacen/requerimientos` | test_portal |

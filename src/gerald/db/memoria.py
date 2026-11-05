@@ -8,6 +8,8 @@ from typing import Any
 from gerald.schemas.pedido import PedidoEntrada
 from gerald.schemas.resultados import CalculoMateriales, Material
 
+ORDEN_TALLAS = ["XS", "S", "M", "L", "XL", "XXL"]
+
 
 class PedidosMemoria:
     def __init__(self) -> None:
@@ -23,7 +25,17 @@ class PedidosMemoria:
 
     def registrar(self, pedido: PedidoEntrada, clave: str) -> None:
         self.claves[clave] = pedido.pedido_id
-        self.pedidos[pedido.pedido_id] = {"estado": "recibido", "cambio": datetime.now(UTC)}
+        self.pedidos[pedido.pedido_id] = {
+            "estado": "recibido",
+            "cambio": datetime.now(UTC),
+            "cliente_id": pedido.cliente_id,
+        }
+
+    def de_cliente(self, cliente_id: str) -> list[str]:
+        return [pid for pid, p in reversed(self.pedidos.items()) if p.get("cliente_id") == cliente_id]
+
+    def estado_de(self, pedido_id: str) -> str | None:
+        return self.pedidos.get(pedido_id, {}).get("estado")
 
     def actualizar_estado(self, pedido_id: str, estado: str) -> None:
         self.pedidos.setdefault(pedido_id, {}).update(estado=estado, cambio=datetime.now(UTC))
@@ -89,6 +101,20 @@ class AlmacenMemoria:
 
     def stock(self, ids: list[str]) -> dict[str, Decimal]:
         return {i: self.disponible.get(i, Decimal(0)) for i in ids}
+
+    def prendas(self) -> dict[str, list[str]]:
+        resultado: dict[str, list[str]] = defaultdict(list)
+        for prenda, talla in self._recetas:
+            resultado[prenda].append(talla)
+        return {p: sorted(t, key=ORDEN_TALLAS.index) for p, t in resultado.items()}
+
+    def requerimientos_pendientes(self) -> list[dict[str, Any]]:
+        return [
+            {"pedido_id": r["pedido_id"], "material_id": m, "faltante": c}
+            for r in self.requerimientos
+            if r["estado"] == "pendiente"
+            for m, c in r["faltantes"].items()
+        ]
 
     def reservar(self, pedido_id: str, requeridos: dict[str, Decimal]) -> dict[str, Decimal]:
         if pedido_id in self.reservas:  # idempotente

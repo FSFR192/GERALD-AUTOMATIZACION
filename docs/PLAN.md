@@ -26,7 +26,8 @@ Cada fase termina con `/verificar-flujo` en verde y, si toca API/DB/tools, `/aud
 ## Fase 3 · Operación
 - [ ] Programar `uv run python -m gerald.tareas` cada 15 min (cron o scheduler del servidor).
 - [ ] Notificaciones reales (mailpit en desarrollo, SMTP en producción) con enlaces firmados de 1 clic.
-- [ ] Bandeja del administrador y pantalla de aceptación del cliente (frontend).
+- [x] Portal web en `/app` (`src/gerald/web/`): cliente, bandeja del administrador, almacén y calibración.
+- [ ] Inicio de sesión real (proveedor de identidad) para producción; hoy el portal acepta un token o el login demo.
 - [x] LangSmith con datos personales ocultos (`observabilidad.configurar_trazas`).
 
 ## Fase 4 · Endurecimiento

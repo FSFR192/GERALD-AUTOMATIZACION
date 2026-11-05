@@ -18,7 +18,7 @@ from gerald.config import settings
 from gerald.db import semilla
 from gerald.db.memoria import AlmacenMemoria, NotificadorMemoria, PedidosMemoria
 from gerald.decision.decide import reglas_fijas
-from gerald.graph import construir_grafo
+from gerald.graph import construir_grafo, serializador
 from gerald.schemas.pedido import PedidoEntrada
 from gerald.schemas.resultados import InterpretacionBoceto
 from gerald.servicios import Servicios
@@ -65,18 +65,20 @@ def construir_servicios_demo():
         correo_admin=cfg.correo_admin,
         correo_almacen=cfg.correo_almacen,
     )
-    return construir_grafo(servicios, MemorySaver()), servicios
+    return construir_grafo(servicios, MemorySaver(serde=serializador())), servicios
 
 
-def token(rol: str, sub: str, horas: int = 8) -> str:
-    """JWT de desarrollo firmado con GERALD_JWT_SECRETO. Solo para el modo demo."""
+def token(rol: str, sub: str, correo: str | None = None, horas: int = 24) -> str:
+    """JWT de desarrollo firmado con GERALD_JWT_SECRETO."""
     return jwt.encode(
-        {"sub": sub, "rol": rol, "correo": f"{sub.lower()}@demo.pe", "exp": int(time.time()) + horas * 3600},
+        {"sub": sub, "rol": rol, "correo": correo or f"{sub.lower()}@demo.pe", "exp": int(time.time()) + horas * 3600},
         settings().jwt_secreto.get_secret_value(),
         algorithm="HS256",
     )
 
 
 if __name__ == "__main__":
-    rol, sub = (sys.argv[1:3] + ["cliente", "C-001"][len(sys.argv[1:3]) :])[:2]
-    print(token(rol, sub))
+    rol = sys.argv[1] if len(sys.argv) > 1 else "cliente"
+    sub = sys.argv[2] if len(sys.argv) > 2 else "C-001"
+    correo = sys.argv[3] if len(sys.argv) > 3 else None
+    print(token(rol, sub, correo))

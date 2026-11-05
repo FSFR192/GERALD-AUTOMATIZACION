@@ -75,7 +75,8 @@ class InterpreteVision:
 
         from gerald.llm import invocar_con_errores
 
-        return invocar_con_errores(self._llm, [SystemMessage(SISTEMA), _mensaje_boceto(pedido)], AGENTE)
+        borrador = invocar_con_errores(self._llm, [SystemMessage(SISTEMA), _mensaje_boceto(pedido)], AGENTE)
+        return borrador.model_copy(update={"agente": AGENTE})  # el LLM no decide quién firma el resultado
 
 
 SISTEMA_OCR = (

@@ -7,7 +7,7 @@ import pytest
 from langgraph.checkpoint.memory import MemorySaver
 
 from gerald.db.memoria import AlmacenMemoria, NotificadorMemoria, PedidosMemoria
-from gerald.graph import construir_grafo
+from gerald.graph import construir_grafo, serializador
 from gerald.schemas.pedido import LineaPedido, PedidoEntrada
 from gerald.schemas.resultados import Decision, InterpretacionBoceto, Material
 from gerald.servicios import Servicios
@@ -78,7 +78,8 @@ def construir():
             interprete=interprete or FakeInterprete(),
             evaluador=evaluador or FakeEvaluador(),
         )
-        return construir_grafo(servicios, MemorySaver(), reintento_inicial_s=0.01), servicios
+        grafo = construir_grafo(servicios, MemorySaver(serde=serializador()), reintento_inicial_s=0.01)
+        return grafo, servicios
 
     return _construir
 

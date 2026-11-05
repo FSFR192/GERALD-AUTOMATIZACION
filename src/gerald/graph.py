@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, RetryPolicy
 
@@ -78,6 +79,27 @@ def ruta_tras_stock(state: GeraldState) -> str:
 
 def ruta_tras_reserva(state: GeraldState) -> str:
     return "generar_orden" if state["reserva"].completa else "requerir_abastecimiento"
+
+
+# ---------- serialización de checkpoints ----------
+TIPOS_DEL_ESTADO = [
+    ("gerald.schemas.pedido", "PedidoEntrada"),
+    ("gerald.schemas.pedido", "LineaPedido"),
+    ("gerald.schemas.resultados", "InterpretacionBoceto"),
+    ("gerald.schemas.resultados", "CalculoMateriales"),
+    ("gerald.schemas.resultados", "LineaMaterial"),
+    ("gerald.schemas.resultados", "Decision"),
+    ("gerald.schemas.resultados", "VeredictoPolitica"),
+    ("gerald.schemas.resultados", "AprobacionAdmin"),
+    ("gerald.schemas.resultados", "AceptacionCliente"),
+    ("gerald.schemas.resultados", "Reserva"),
+    ("gerald.schemas.resultados", "Faltante"),
+]
+
+
+def serializador() -> JsonPlusSerializer:
+    """Solo los contratos del estado pueden reconstruirse desde un checkpoint (lista explícita)."""
+    return JsonPlusSerializer(allowed_msgpack_modules=TIPOS_DEL_ESTADO)
 
 
 # ---------- construcción ----------

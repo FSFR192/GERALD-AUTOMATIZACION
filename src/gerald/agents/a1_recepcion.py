@@ -26,11 +26,12 @@ def nodo(state: GeraldState, servicios: Servicios) -> dict:
     clave = clave_idempotencia(pedido)
 
     existente = servicios.pedidos.existe_clave(clave)
-    if existente:
+    if existente and existente != pedido.pedido_id:
         return {"clave_idempotencia": clave, "es_duplicado": True, "estado": "duplicado"}
 
-    servicios.pedidos.registrar(pedido, clave)  # ErrorSistema si falla (P05)
-    servicios.pedidos.auditar(AGENTE, "registrar_pedido", pedido.pedido_id, {"clave": clave})
+    if existente is None:  # si es este mismo pedido, es un reintento o reproceso: no se registra otra vez
+        servicios.pedidos.registrar(pedido, clave)  # ErrorSistema si falla (P05)
+        servicios.pedidos.auditar(AGENTE, "registrar_pedido", pedido.pedido_id, {"clave": clave})
     servicios.notificador.enviar(
         "recepcion",
         pedido.correo_cliente,

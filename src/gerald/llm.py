@@ -33,9 +33,13 @@ def invocar_con_errores(modelo: Any, mensajes: Any, origen: str) -> Any:
     except TimeoutError as exc:
         raise ErrorTransitorio(origen, "tiempo de espera del modelo agotado") from exc
     except Exception as exc:
-        texto = str(exc).lower()
-        if any(c in texto for c in ("429", "503", "unavailable", "rate limit", "timeout")):
+        texto = f"{type(exc).__name__} {exc}".lower()  # el tipo cuenta: ReadTimeout no siempre trae mensaje
+        transitorios = ("429", "503", "504", "unavailable", "rate limit", "timeout", "deadline")
+        if any(c in texto for c in transitorios):
             raise ErrorTransitorio(origen, "servicio del modelo no disponible") from exc
         if any(c in texto for c in ("quota", "cuota", "401", "403", "permission", "api key")):
             raise ErrorSistema(origen, "cuota agotada o credencial inválida del modelo") from exc
-        raise
+        if any(c in texto for c in ("404", "not_found", "not found", "no longer available")):
+            raise ErrorSistema(origen, "el modelo configurado no existe o fue retirado") from exc
+        # Error no clasificado del proveedor: detener y alertar (P05), nunca tragarlo ni reventar el grafo.
+        raise ErrorSistema(origen, f"error no clasificado del modelo: {type(exc).__name__}") from exc

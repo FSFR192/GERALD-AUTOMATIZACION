@@ -16,5 +16,7 @@ Todas las notificaciones las emite **A4** mediante `enviar_correo` y plantillas 
 
 ## Reglas
 - Idempotentes: clave `(pedido_id, evento)`; no se reenvía dos veces el mismo aviso.
-- Fallo de envío = `ErrorTransitorio` (reintento); no bloquea el flujo principal salvo la cotización.
+- Fallo de envío: **nunca bloquea a los agentes**. El aviso queda en la bandeja de salida de `NotificadorCorreo` y la
+  tarea programada lo reintenta (`reintentar_pendientes`). La cotización también se publica en el portal (`/app`),
+  donde el cliente la acepta, así que el correo es un canal adicional y no un requisito del flujo.
 - Español formal, breve, con un solo llamado a la acción.

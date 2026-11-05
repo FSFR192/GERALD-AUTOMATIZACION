@@ -12,10 +12,10 @@ Automatiza la **contratación de pedidos** y la **coordinación de materiales co
    ```
 3. Para probar la API sin Docker ni Postgres (modo demo, datos en memoria):
    ```bash
-   GERALD_MODO=demo uv run uvicorn gerald.api.main:app --reload     # http://localhost:8000/docs
-   uv run python -m gerald.demo cliente C-001                       # token JWT de cliente
-   uv run python -m gerald.demo administrador ADM-1                 # token de administrador
+   GERALD_MODO=demo uv run uvicorn gerald.api.main:app --reload
    ```
+   Abra **http://localhost:8000** (portal web): elija un rol (Cliente, Administrador, Almacén, Auditor) y pruebe
+   cada carril del BPMN. La documentación técnica de la API sigue en `/docs`.
    Sin `GERALD_GOOGLE_API_KEY` todos los pedidos van a revisión del administrador (nunca se aprueba sin LLM).
 4. Para levantar con base de datos real:
    ```bash
@@ -23,7 +23,8 @@ Automatiza la **contratación de pedidos** y la **coordinación de materiales co
    docker compose up -d db
    uv run python -m gerald.db.init
    uv run uvicorn gerald.api.main:app --reload
-   GERALD_TEST_DATABASE_URL=postgresql://gerald:gerald@localhost:5432/gerald uv run pytest -m integracion
+   docker compose exec db createdb -U gerald gerald_test   # base desechable: las pruebas la borran
+   GERALD_TEST_DATABASE_URL=postgresql://gerald:gerald@localhost:5432/gerald_test uv run pytest -m integracion
    ```
 5. Tareas programadas: `uv run python -m gerald.tareas` (cada 15 min) y `uv run python -m gerald.tareas calibracion` (semanal).
 

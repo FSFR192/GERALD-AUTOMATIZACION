@@ -87,3 +87,6 @@ if __name__ == "__main__":
     else:
         print(vigilar_sla(grafo, servicios))
         print(reprocesar_pendientes(grafo, servicios))
+        reintentar = getattr(servicios.notificador, "reintentar_pendientes", None)
+        if reintentar:
+            print({"correos_reenviados": reintentar()})

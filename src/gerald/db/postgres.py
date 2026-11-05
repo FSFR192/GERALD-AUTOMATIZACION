@@ -44,6 +44,14 @@ class PedidosPG:
             ).fetchone()
         return fila[0] if fila else None
 
+    def de_cliente(self, cliente_id: str) -> list[str]:
+        with _tx(self.pool, "pedidos") as cx:
+            filas = cx.execute(
+                "SELECT pedido_id FROM pedidos WHERE cliente_id = %s ORDER BY creado_en DESC LIMIT 100",
+                (cliente_id,),
+            ).fetchall()
+        return [f[0] for f in filas]
+
     def registrar(self, pedido: PedidoEntrada, clave: str) -> None:
         try:
             with _tx(self.pool, "registro") as cx:
@@ -61,6 +69,11 @@ class PedidosPG:
             raise
         except Exception as exc:
             raise ErrorSistema("registro", "no se pudo registrar el pedido") from exc
+
+    def estado_de(self, pedido_id: str) -> str | None:
+        with _tx(self.pool, "pedidos") as cx:
+            fila = cx.execute("SELECT estado FROM pedidos WHERE pedido_id = %s", (pedido_id,)).fetchone()
+        return fila[0] if fila else None
 
     def actualizar_estado(self, pedido_id: str, estado: str) -> None:
         with _tx(self.pool, "pedidos") as cx:
@@ -163,6 +176,23 @@ class AlmacenPG:
                     (prenda, talla),
                 ).fetchall()
             ]
+
+    def prendas(self) -> dict[str, list[str]]:
+        with _tx(self.pool, "catalogo") as cx:
+            filas = cx.execute(
+                "SELECT prenda, array_agg(talla ORDER BY array_position("
+                "ARRAY['XS','S','M','L','XL','XXL'], talla)) FROM "
+                "(SELECT DISTINCT prenda, talla FROM recetas) r GROUP BY prenda ORDER BY prenda"
+            ).fetchall()
+        return {f[0]: list(f[1]) for f in filas}
+
+    def requerimientos_pendientes(self) -> list[dict[str, Any]]:
+        with _tx(self.pool, "abastecimiento") as cx:
+            filas = cx.execute(
+                "SELECT pedido_id, material_id, faltante FROM requerimientos_abastecimiento "
+                "WHERE estado = 'pendiente' ORDER BY id"
+            ).fetchall()
+        return [{"pedido_id": f[0], "material_id": f[1], "faltante": f[2]} for f in filas]
 
     def stock(self, ids: list[str]) -> dict[str, Decimal]:
         with _tx(self.pool, "inventario") as cx:

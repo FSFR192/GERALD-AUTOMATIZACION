@@ -104,3 +104,14 @@ def test_ingreso_de_almacen_reanuda_pedidos_en_espera(construir, tmp_path, monke
     assert r.status_code == 200
     assert r.json()[pedido_id]["estado"] == "en_produccion"
     assert servicios.almacen.disponible["TEL-DRYFIT"] == Decimal("2.04")
+
+
+def test_openapi_declara_bearer_y_carriles(cliente):
+    c, _ = cliente
+    esquema = c.get("/openapi.json").json()
+    assert esquema["components"]["securitySchemes"]["HTTPBearer"]["scheme"] == "bearer"  # botón Authorize
+    etiquetas = {op["tags"][0] for ruta in esquema["paths"].values() for op in ruta.values()}
+    assert etiquetas == {"Cliente", "Administrador", "Almacén", "Gobernanza"}
+    operaciones = [op for ruta in esquema["paths"].values() for op in ruta.values()]
+    parametros = [p["name"] for op in operaciones for p in op.get("parameters", [])]
+    assert "authorization" not in parametros  # el token ya no es un campo de texto suelto

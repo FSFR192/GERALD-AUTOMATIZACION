@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     jwt_secreto: SecretStr = SecretStr("solo-desarrollo-local-cambiar-en-env-0000")  # ≥ 32 bytes
     llm_proveedor: Literal["google", "ollama"] = "google"
     google_api_key: SecretStr | None = None
-    modelo_google: str = "gemini-2.5-flash"
+    modelo_google: str = "gemini-3.8-flash"  # 2.5-flash retirado (404) para claves nuevas
     modelo_ollama: str = "llava"
     dir_bocetos: str = "./data/bocetos"
     tamano_max_mb: int = 10

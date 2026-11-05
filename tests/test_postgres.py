@@ -1,7 +1,9 @@
 """Integración con PostgreSQL real (fase 1). Opcional: se omite si no hay GERALD_TEST_DATABASE_URL.
 
     docker compose up -d db
-    GERALD_TEST_DATABASE_URL=postgresql://gerald:gerald@localhost:5432/gerald uv run pytest -m integracion
+    docker compose exec db createdb -U gerald gerald_test
+    export GERALD_TEST_DATABASE_URL=postgresql://gerald:gerald@localhost:5432/gerald_test
+    uv run pytest -m integracion
 
 Usa una base desechable: borra y recrea el esquema público.
 """
@@ -17,6 +19,9 @@ pytestmark = [
     pytest.mark.integracion,
     pytest.mark.skipif(not URL, reason="sin GERALD_TEST_DATABASE_URL"),
 ]
+# Protección: estas pruebas BORRAN el esquema. Nunca contra la base real del sistema.
+if URL and "test" not in URL.rsplit("/", 1)[-1].lower():
+    pytest.exit("GERALD_TEST_DATABASE_URL debe apuntar a una base cuyo nombre contenga 'test'", returncode=2)
 
 
 @pytest.fixture

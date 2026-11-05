@@ -6,7 +6,8 @@ from collections import defaultdict, deque
 from typing import Literal
 
 import jwt
-from fastapi import Depends, Header, HTTPException, UploadFile, status
+from fastapi import Depends, HTTPException, UploadFile, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from gerald.config import settings
@@ -26,11 +27,20 @@ class Usuario(BaseModel):
     correo: str
 
 
-def autenticar(authorization: str | None = Header(default=None)) -> Usuario:
-    if not authorization or not authorization.startswith("Bearer "):
+# Declarado como esquema Bearer para que OpenAPI/Swagger muestre el botón "Authorize".
+# auto_error=False: sin token respondemos 401 (no el 403 por defecto de FastAPI).
+esquema_bearer = HTTPBearer(auto_error=False, description="JWT firmado (HS256) con sub, rol y correo")
+
+
+def autenticar(
+    credenciales: HTTPAuthorizationCredentials | None = Depends(esquema_bearer),
+) -> Usuario:
+    if credenciales is None or credenciales.scheme.lower() != "bearer":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "No autenticado")
     try:
-        datos = jwt.decode(authorization[7:], settings().jwt_secreto.get_secret_value(), algorithms=["HS256"])
+        datos = jwt.decode(
+            credenciales.credentials, settings().jwt_secreto.get_secret_value(), algorithms=["HS256"]
+        )
         return Usuario(id=datos["sub"], rol=datos["rol"], correo=datos["correo"])
     except (jwt.PyJWTError, KeyError, ValueError) as exc:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "No autenticado") from exc
