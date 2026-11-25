@@ -3,47 +3,51 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.py"
+      "destination": "/api/index"
     },
     {
       "source": "/pedidos/(.*)",
-      "destination": "/api/index.py"
+      "destination": "/api/index"
     },
     {
       "source": "/pedidos",
-      "destination": "/api/index.py"
+      "destination": "/api/index"
     },
     {
       "source": "/catalogo",
-      "destination": "/api/index.py"
+      "destination": "/api/index"
     },
     {
       "source": "/revision/(.*)",
-      "destination": "/api/index.py"
+      "destination": "/api/index"
     },
     {
       "source": "/revision",
-      "destination": "/api/index.py"
+      "destination": "/api/index"
     },
     {
       "source": "/calibracion",
-      "destination": "/api/index.py"
+      "destination": "/api/index"
     },
     {
       "source": "/almacen/(.*)",
-      "destination": "/api/index.py"
+      "destination": "/api/index"
     },
     {
       "source": "/demo/(.*)",
-      "destination": "/api/index.py"
+      "destination": "/api/index"
+    },
+    {
+      "source": "/demo",
+      "destination": "/api/index"
     },
     {
       "source": "/docs",
-      "destination": "/api/index.py"
+      "destination": "/api/index"
     },
     {
       "source": "/openapi.json",
-      "destination": "/api/index.py"
+      "destination": "/api/index"
     }
   ]
 }

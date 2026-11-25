@@ -89,6 +89,16 @@ app = FastAPI(
     lifespan=ciclo_vida,
 )
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.get("/", include_in_schema=False)
 @app.get("/app", include_in_schema=False)
@@ -368,6 +378,9 @@ class SesionDemo(BaseModel):
 
 
 @app.post("/demo/sesion", include_in_schema=False)
+@app.post("/demo/sesion/", include_in_schema=False)
+@app.post("/api/demo/sesion", include_in_schema=False)
+@app.post("/api/demo/sesion/", include_in_schema=False)
 def sesion_demo(cuerpo: SesionDemo):
     """Solo con GERALD_MODO=demo. En producción el token lo emite el proveedor de identidad."""
     if settings().modo != "demo":
@@ -378,11 +391,17 @@ def sesion_demo(cuerpo: SesionDemo):
 
 
 @app.get("/demo/estado", include_in_schema=False)
+@app.get("/demo/estado/", include_in_schema=False)
+@app.get("/api/demo/estado", include_in_schema=False)
+@app.get("/api/demo/estado/", include_in_schema=False)
 def estado_demo():
     return {"demo": settings().modo == "demo"}
 
 
 @app.post("/demo/simular", include_in_schema=False)
+@app.post("/demo/simular/", include_in_schema=False)
+@app.post("/api/demo/simular", include_in_schema=False)
+@app.post("/api/demo/simular/", include_in_schema=False)
 def simular_pedidos(usuario: Usuario = Depends(autenticar)):
     """Puebla el sistema con pedidos simulados multiempresa para demostrar la suite."""
     if settings().modo != "demo":
