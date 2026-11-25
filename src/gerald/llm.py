@@ -34,7 +34,7 @@ def invocar_con_errores(modelo: Any, mensajes: Any, origen: str) -> Any:
         raise ErrorTransitorio(origen, "tiempo de espera del modelo agotado") from exc
     except Exception as exc:
         texto = f"{type(exc).__name__} {exc}".lower()  # el tipo cuenta: ReadTimeout no siempre trae mensaje
-        transitorios = ("429", "503", "504", "unavailable", "rate limit", "timeout", "deadline")
+        transitorios = ("429", "503", "504", "unavailable", "rate limit", "timeout", "deadline", "connecterror", "connection error")
         if any(c in texto for c in transitorios):
             raise ErrorTransitorio(origen, "servicio del modelo no disponible") from exc
         if any(c in texto for c in ("quota", "cuota", "401", "403", "permission", "api key")):

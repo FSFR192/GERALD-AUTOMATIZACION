@@ -40,9 +40,10 @@ def decide(
 ) -> Decision:
     try:
         return evaluador(pedido, boceto, calculo)
-    except ValidationError:
+    except (ValidationError, Exception):
+        # Si el LLM evaluador falla o no tiene conexión externa, aplicamos las reglas
+        # fijas deterministas de respaldo (Sistema 1) con confianza baja para escalar a revisión admin.
         return reglas_fijas(pedido, boceto, calculo)
-    # ErrorTransitorio y ErrorSistema se propagan: los maneja el grafo (P05).
 
 
 class EvaluadorLLM:

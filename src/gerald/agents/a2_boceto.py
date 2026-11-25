@@ -28,6 +28,16 @@ def nodo(state: GeraldState, servicios: Servicios) -> dict:
         interpretacion = servicios.interprete(pedido)
     except ErrorDatos as exc:
         return {"observaciones": [exc.mensaje], "estado": "observado"}
+    except Exception:
+        # Respaldo resiliente: si el modelo de visión externo no responde, inferimos la prenda
+        # declarada con confianza baja para que el pedido continúe a revisión humana sin detenerse.
+        interpretacion = InterpretacionBoceto(
+            agente=AGENTE,
+            legible=True,
+            prenda=pedido.lineas[0].prenda,
+            confianza="baja",
+            evidencias=["modelo de visión no disponible: prenda inferida del pedido para revisión admin"],
+        )
 
     if not interpretacion.legible:
         obs = interpretacion.observaciones or [

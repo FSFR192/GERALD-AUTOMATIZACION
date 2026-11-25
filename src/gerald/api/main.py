@@ -90,12 +90,24 @@ app = FastAPI(
 )
 
 
+@app.get("/app", include_in_schema=False)
+def app_redirect():
+    return RedirectResponse(url="/app/")
+
+
 @app.get("/", include_in_schema=False)
 def index():
     return RedirectResponse(url="/app/")
 
 
 def _grafo():
+    if "grafo" not in ESTADO or "servicios" not in ESTADO:
+        if settings().modo == "demo":
+            from gerald.demo import construir_servicios_demo
+
+            ESTADO["grafo"], ESTADO["servicios"] = construir_servicios_demo()
+        else:
+            ESTADO["grafo"], ESTADO["servicios"] = construir_servicios_produccion()
     return ESTADO["grafo"], ESTADO["servicios"]
 
 
@@ -348,6 +360,89 @@ def sesion_demo(cuerpo: SesionDemo):
 @app.get("/demo/estado", include_in_schema=False)
 def estado_demo():
     return {"demo": settings().modo == "demo"}
+
+
+@app.post("/demo/simular", include_in_schema=False)
+def simular_pedidos(usuario: Usuario = Depends(autenticar)):
+    """Puebla el sistema con pedidos simulados multiempresa para demostrar la suite."""
+    if settings().modo != "demo":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Solo en modo demo")
+    
+    import time
+    grafo, servicios = _grafo()
+    from gerald.schemas.pedido import LineaPedido
+    from pathlib import Path
+    
+    dir_bocetos = Path(settings().dir_bocetos)
+    dir_bocetos.mkdir(parents=True, exist_ok=True)
+    
+    ts = int(time.time() * 10) % 100000
+    
+    casos = [
+        {
+            "pedido_id": f"P-ENTEL-{ts:05d}",
+            "cliente_id": "C-ENTEL-PE",
+            "empresa": "Entel Perú S.A.",
+            "correo": "compras@entel.pe",
+            "lineas": [LineaPedido(prenda="polo", talla="L", color=f"azul entel #{ts%9+1}", cantidad=45)],
+            "notas": "Uniformes corporativos sucursal Lima Centro. Bordado pecho izq.",
+        },
+        {
+            "pedido_id": f"P-BCP-{ts+1:05d}",
+            "cliente_id": "C-BANCO-BCP",
+            "empresa": "Banco de Crédito BCP",
+            "correo": "logistica@bcp.com.pe",
+            "lineas": [LineaPedido(prenda="casaca", talla="M", color=f"azul noche #{ts%9+1}", cantidad=25)],
+            "notas": "Casacas térmicas para evento anual de innovación BCP.",
+        },
+        {
+            "pedido_id": f"P-INTER-{ts+2:05d}",
+            "cliente_id": "C-INTERBANK",
+            "empresa": "Interbank",
+            "correo": "talento@interbank.pe",
+            "lineas": [LineaPedido(prenda="short", talla="M", color=f"verde corporativo #{ts%9+1}", cantidad=30)],
+            "notas": "Torneo deportivo interbancario corporativo.",
+        },
+        {
+            "pedido_id": f"P-CLARO-{ts+3:05d}",
+            "cliente_id": "C-CLARO-PE",
+            "empresa": "Claro Perú",
+            "correo": "eventos@claro.com.pe",
+            "lineas": [LineaPedido(prenda="polo", talla="S", color=f"rojo claro #{ts%9+1}", cantidad=60)],
+            "notas": "Maratón Claro 10K. Sublimación logo institucional.",
+        },
+    ]
+    
+    creados = []
+    for i, c in enumerate(casos):
+        boceto_archivo = dir_bocetos / f"boceto_{c['pedido_id']}.png"
+        # PNG 1x1 con bytes variables para firma sha256 única por pedido
+        pixel_byte = (ts + i) % 255
+        png_bytes = (
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+            + bytes([pixel_byte])
+        )
+        boceto_archivo.write_bytes(png_bytes)
+        sha_boceto = hashlib.sha256(png_bytes).hexdigest()
+        
+        p = PedidoEntrada(
+            pedido_id=c["pedido_id"],
+            cliente_id=c["cliente_id"],
+            correo_cliente=c["correo"],
+            boceto_uri=str(boceto_archivo),
+            boceto_sha256=sha_boceto,
+            lineas=c["lineas"],
+            notas=c["notas"],
+        )
+        res = ejecutar_pedido(grafo, p, servicios)
+        creados.append({
+            "pedido_id": c["pedido_id"],
+            "cliente_id": c["cliente_id"],
+            "empresa": c["empresa"],
+            "estado": res.get("estado")
+        })
+        
+    return {"status": "ok", "total": len(creados), "pedidos_simulados": creados}
 
 
 # ---------- Portal web (interfaz de usuario) ----------
