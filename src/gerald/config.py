@@ -1,5 +1,6 @@
 """Configuración: secretos desde variables de entorno y parámetros de negocio (P03)."""
 
+import os
 from decimal import Decimal
 from functools import lru_cache
 from typing import Literal
@@ -30,7 +31,7 @@ class Settings(BaseSettings):
     google_api_key: SecretStr | None = None
     modelo_google: str = "gemini-3.8-flash"  # 2.5-flash retirado (404) para claves nuevas
     modelo_ollama: str = "llava"
-    dir_bocetos: str = "./data/bocetos"
+    dir_bocetos: str = "/tmp/bocetos" if os.environ.get("VERCEL") else "./data/bocetos"
     tamano_max_mb: int = 10
     limite_por_minuto: int = 10
     smtp_host: str = "localhost"

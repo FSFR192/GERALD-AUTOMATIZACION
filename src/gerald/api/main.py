@@ -219,9 +219,14 @@ async def crear_pedido(
     contenido = await validar_archivo(archivo)
 
     pedido_id = f"P-{uuid.uuid4().hex[:10].upper()}"
-    destino = Path(settings().dir_bocetos) / f"{pedido_id}{Path(archivo.filename or '').suffix[:5]}"
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    destino.write_bytes(contenido)
+    try:
+        destino = Path(settings().dir_bocetos) / f"{pedido_id}{Path(archivo.filename or '').suffix[:5]}"
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        destino.write_bytes(contenido)
+    except OSError:
+        destino = Path("/tmp/bocetos") / f"{pedido_id}{Path(archivo.filename or '').suffix[:5]}"
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        destino.write_bytes(contenido)
 
     pedido = PedidoEntrada(
         pedido_id=pedido_id,
@@ -410,8 +415,12 @@ def simular_pedidos(usuario: Usuario = Depends(autenticar)):
     from gerald.schemas.pedido import LineaPedido
     from pathlib import Path
     
-    dir_bocetos = Path(settings().dir_bocetos)
-    dir_bocetos.mkdir(parents=True, exist_ok=True)
+    try:
+        dir_bocetos = Path(settings().dir_bocetos)
+        dir_bocetos.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        dir_bocetos = Path("/tmp/bocetos")
+        dir_bocetos.mkdir(parents=True, exist_ok=True)
     
     ts = int(time.time() * 10) % 100000
     
