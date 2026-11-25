@@ -103,8 +103,6 @@ app.add_middleware(
 @app.get("/", include_in_schema=False)
 @app.get("/app", include_in_schema=False)
 @app.get("/app/", include_in_schema=False)
-@app.get("/api/index", include_in_schema=False)
-@app.get("/api/index.py", include_in_schema=False)
 def index_portal():
     archivo_index = DIR_WEB / "index.html"
     if archivo_index.is_file():
