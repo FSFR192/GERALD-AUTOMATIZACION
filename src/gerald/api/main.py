@@ -90,14 +90,34 @@ app = FastAPI(
 )
 
 
-@app.get("/app", include_in_schema=False)
-def app_redirect():
-    return RedirectResponse(url="/app/")
-
-
 @app.get("/", include_in_schema=False)
-def index():
-    return RedirectResponse(url="/app/")
+@app.get("/app", include_in_schema=False)
+@app.get("/app/", include_in_schema=False)
+@app.get("/api/index", include_in_schema=False)
+@app.get("/api/index.py", include_in_schema=False)
+def index_portal():
+    archivo_index = DIR_WEB / "index.html"
+    if archivo_index.is_file():
+        return FileResponse(archivo_index, media_type="text/html")
+    return RedirectResponse(url="/docs")
+
+
+@app.get("/app.js", include_in_schema=False)
+@app.get("/app/app.js", include_in_schema=False)
+def portal_js():
+    archivo_js = DIR_WEB / "app.js"
+    if archivo_js.is_file():
+        return FileResponse(archivo_js, media_type="application/javascript")
+    raise HTTPException(status.HTTP_404_NOT_FOUND, "app.js no encontrado")
+
+
+@app.get("/estilos.css", include_in_schema=False)
+@app.get("/app/estilos.css", include_in_schema=False)
+def portal_css():
+    archivo_css = DIR_WEB / "estilos.css"
+    if archivo_css.is_file():
+        return FileResponse(archivo_css, media_type="text/css")
+    raise HTTPException(status.HTTP_404_NOT_FOUND, "estilos.css no encontrado")
 
 
 def _grafo():

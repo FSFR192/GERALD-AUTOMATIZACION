@@ -1,0 +1,951 @@
+/* Gerald OS Enterprise · Suite Multi-Empresa con Agentes Autónomos e Intervención Humana (HITL)
+   Vanilla JS reactivo y seguro. Todo texto se inserta mediante textContent (sin innerHTML inseguro). */
+"use strict";
+
+// ---------- Directorio Multi-Empresa ----------
+const EMPRESAS = {
+  "C-ENTEL-PE": { nombre: "Entel Perú S.A.", sector: "Telecomunicaciones", color: "#00a9e0", sigla: "ENTEL", icono: "📱" },
+  "C-BANCO-BCP": { nombre: "Banco de Crédito BCP", sector: "Banca & Finanzas", color: "#002a8f", sigla: "BCP", icono: "🏦" },
+  "C-INTERBANK": { nombre: "Interbank", sector: "Banca & Retail", color: "#009939", sigla: "INTER", icono: "🟢" },
+  "C-CLARO-PE": { nombre: "Claro Telecom Perú", sector: "Telecomunicaciones", color: "#da291c", sigla: "CLARO", icono: "🔴" },
+  "C-001": { nombre: "Club Deportivo Sport", sector: "Deportes & Eventos", color: "#e8552b", sigla: "SPORT", icono: "👕" },
+};
+
+function resolverEmpresa(clienteId) {
+  if (!clienteId) return { nombre: "Corporación Multi-Tenant", sector: "Corporativo B2B", color: "#64748b", sigla: "B2B", icono: "🏢" };
+  if (EMPRESAS[clienteId]) return EMPRESAS[clienteId];
+  for (const [k, v] of Object.entries(EMPRESAS)) {
+    if (clienteId.includes(k.replace("C-", ""))) return v;
+  }
+  return { nombre: `Empresa ${clienteId}`, sector: "Corporativo", color: "#475569", sigla: clienteId.slice(0, 6), icono: "🏢" };
+}
+
+function badgeEmpresa(clienteId) {
+  const emp = resolverEmpresa(clienteId);
+  return h("span", {
+    class: "badge-empresa",
+    style: `--emp-color:${emp.color}`,
+    title: `${emp.nombre} · ${emp.sector}`,
+  }, h("span", { class: "icono" }, emp.icono), h("strong", {}, emp.sigla));
+}
+
+// ---------- DOM & Utilidades ----------
+function h(tag, attrs, ...hijos) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k === "value") el.value = v;
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const hijo of hijos.flat()) {
+    if (hijo === null || hijo === undefined || hijo === false) continue;
+    el.append(hijo instanceof Node ? hijo : document.createTextNode(String(hijo)));
+  }
+  return el;
+}
+
+const $raiz = () => document.getElementById("raiz");
+const soles = (v) => v == null ? "—" : "S/ " + Number(v).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function aviso(texto, tipo = "") {
+  const t = h("div", { class: "toast " + tipo, role: "status" },
+    h("div", { class: "toast-icono" }, tipo === "ok" ? "✓" : tipo === "error" ? "⚠" : "ℹ"),
+    h("div", { class: "toast-texto" }, texto));
+  document.getElementById("avisos").append(t);
+  setTimeout(() => {
+    t.classList.add("desaparecer");
+    setTimeout(() => t.remove(), 300);
+  }, 4800);
+}
+
+const almacen = {
+  leer(k) { try { return JSON.parse(sessionStorage.getItem(k)); } catch { return null; } },
+  guardar(k, v) { try { sessionStorage.setItem(k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } },
+  borrar(k) { try { sessionStorage.removeItem(k); } catch { /* sin almacenamiento */ } },
+};
+
+// ---------- Sesión y API ----------
+let sesion = almacen.leer("gs_sesion");
+
+async function api(ruta, opciones = {}) {
+  const cabeceras = { ...(opciones.headers || {}) };
+  if (sesion) cabeceras.Authorization = "Bearer " + sesion.token;
+  if (opciones.json !== undefined) {
+    cabeceras["Content-Type"] = "application/json";
+    opciones.body = JSON.stringify(opciones.json);
+  }
+  const r = await fetch(ruta, { ...opciones, headers: cabeceras });
+  if (r.status === 401) { cerrarSesion(); throw new Error("Su sesión expiró. Ingrese nuevamente."); }
+  if (!r.ok) {
+    let detalle = "Error " + r.status;
+    try {
+      const cuerpo = await r.json();
+      if (typeof cuerpo.detail === "string") detalle = cuerpo.detail;
+      else if (Array.isArray(cuerpo.detail)) detalle = cuerpo.detail.map((d) => d.msg).join(" · ");
+    } catch { /* sin cuerpo */ }
+    throw new Error(detalle);
+  }
+  return r.headers.get("content-type")?.includes("json") ? r.json() : r;
+}
+
+function cerrarSesion() {
+  sesion = null;
+  almacen.borrar("gs_sesion");
+  detenerSondeo();
+  pintarLogin();
+}
+
+// ---------- Vocabulario BPMN & Estados ----------
+const ESTADOS = {
+  recibido: ["Recibido", "proceso"],
+  validado: ["Validando", "proceso"],
+  interpretado: ["Interpretando boceto", "proceso"],
+  calculado: ["Calculando costo", "proceso"],
+  en_revision: ["En revisión (HITL)", "alerta"],
+  cotizado: ["Cotización lista", "accion"],
+  contratado: ["Contratado", "ok"],
+  esperando_abastecimiento: ["Esperando materiales", "alerta"],
+  reservado: ["Materiales reservados", "ok"],
+  en_produccion: ["En producción", "ok"],
+  observado: ["Requiere corrección", "error"],
+  duplicado: ["Duplicado", "neutro"],
+  no_contratado: ["No contratado", "neutro"],
+  pendiente_reproceso: ["Reintentando", "alerta"],
+  detenido: ["Detenido", "error"],
+};
+
+const PASOS = ["Ingesta", "Análisis IA", "Cotización", "Contrato", "Abastecimiento", "Producción"];
+const PASO_DE = {
+  recibido: 0, validado: 1, interpretado: 1, calculado: 1, en_revision: 1, cotizado: 2,
+  contratado: 3, esperando_abastecimiento: 4, reservado: 4, en_produccion: 6,
+};
+const EN_PROCESO = new Set([null, undefined, "recibido", "validado", "interpretado", "calculado", "contratado", "reservado", "pendiente_reproceso"]);
+
+function chipEstado(estado) {
+  const [texto, clase] = ESTADOS[estado] || ["Procesando", "proceso"];
+  return h("span", { class: "estado " + clase }, texto);
+}
+
+function resumenLineas(lineas) {
+  return lineas.map((l) => `${l.cantidad} ${l.prenda} ${l.talla} ${l.color}`).join(" · ");
+}
+
+// ---------- Roles del Sistema ----------
+const ROLES = [
+  { rol: "administrador", titulo: "👑 Administrador Global", desc: "Torre de Control Multi-Empresa & HITL", id: "ADM-GLOBAL", empresa: "Gerald Enterprise OS" },
+  { rol: "cliente", titulo: "📱 Entel Perú", desc: "Portal Corporativo · Telecomunicaciones", id: "C-ENTEL-PE", empresa: "Entel Perú S.A." },
+  { rol: "cliente", titulo: "🏦 Banco BCP", desc: "Portal Corporativo · Finanzas & Merchandising", id: "C-BANCO-BCP", empresa: "Banco de Crédito BCP" },
+  { rol: "cliente", titulo: "🟢 Interbank", desc: "Portal Corporativo · Eventos y Marketing", id: "C-INTERBANK", empresa: "Interbank" },
+  { rol: "cliente", titulo: "🔴 Claro Perú", desc: "Portal Corporativo · Dotación y Logística", id: "C-CLARO-PE", empresa: "Claro Perú" },
+  { rol: "almacen", titulo: "📦 Almacén Central", desc: "Supply Chain & Abastecimiento B2B", id: "ALM-CENTRAL", empresa: "Supply Hub Central" },
+  { rol: "auditor", titulo: "🔍 Auditor de IA", desc: "Calibración, Gobernanza & Trazabilidad", id: "AUD-GOV", empresa: "Comité de Auditoría" },
+];
+
+async function pintarLogin() {
+  let demo = true;
+  try { demo = (await (await fetch("/demo/estado")).json()).demo; } catch { /* offline */ }
+  let elegido = ROLES[0];
+  const idInput = h("input", { type: "text", value: elegido.id, "aria-label": "Identificador", autocomplete: "off" });
+
+  const botones = ROLES.map((r) => h("button", {
+    type: "button", class: "rol-card", "aria-pressed": String(r === elegido),
+    onclick: () => {
+      elegido = r; idInput.value = r.id;
+      botones.forEach((b, i) => b.setAttribute("aria-pressed", String(ROLES[i] === r)));
+    },
+  },
+  h("div", { class: "rol-card-header" },
+    h("strong", {}, r.titulo),
+    h("span", { class: "rol-empresa-tag" }, r.empresa)),
+  h("p", { class: "rol-desc" }, r.desc)));
+
+  const tokenInput = h("textarea", { placeholder: "Pegue aquí su JWT de acceso corporativo", rows: 3 });
+  const enviar = h("button", { class: "btn btn-primario btn-grande", type: "submit" }, "Acceder a la Plataforma");
+
+  const formulario = h("form", {
+    onsubmit: async (e) => {
+      e.preventDefault();
+      enviar.disabled = true;
+      try {
+        if (demo) {
+          const r = await api("/demo/sesion", { method: "POST", json: { rol: elegido.rol, id: idInput.value.trim() } });
+          sesion = { token: r.token, rol: r.rol, id: r.id, empresa: elegido.empresa };
+        } else {
+          const token = tokenInput.value.trim();
+          const datos = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+          sesion = { token, rol: datos.rol, id: datos.sub, empresa: "Corporativo" };
+        }
+        almacen.guardar("gs_sesion", sesion);
+        iniciarApp();
+      } catch (err) {
+        aviso(err.message.includes("JSON") || err.message.includes("atob") ? "Token inválido" : err.message, "error");
+      } finally { enviar.disabled = false; }
+    },
+  },
+  demo ? [
+    h("div", { class: "selector-roles-titulo" }, "Seleccione el perfil o empresa corporativa:"),
+    h("div", { class: "roles-grid" }, botones),
+    h("div", { class: "id-override" },
+      h("label", { class: "campo" }, h("span", {}, "Identificador de Cuenta / Tenant ID"), idInput)),
+  ] : h("label", { class: "campo" }, h("span", {}, "Token de acceso"), tokenInput),
+  enviar);
+
+  $raiz().replaceChildren(h("div", { class: "login-contenedor" },
+    h("div", { class: "login-tarjeta" },
+      h("div", { class: "login-marca" },
+        h("div", { class: "logo-plataforma" }, "GO"),
+        h("div", {},
+          h("h1", {}, "Gerald Enterprise OS"),
+          h("div", { class: "plataforma-sub" }, "Plataforma Multi-Empresa de Abastecimiento & Producción con Agentes IA"))),
+      h("div", { class: "banner-multiempresa" },
+        h("div", { class: "chip-multi" }, "MULTI-TENANT ARCHITECTURE"),
+        h("p", {}, "Orquestación LangGraph · Control Tower HITL · LangSmith Observability")),
+      formulario,
+      demo && h("div", { class: "nota-demo" },
+        "💡 Modo Demostración Multi-Empresa activo. Puede alternar entre clientes corporativos o ingresar como Administrador Global para supervisar la torre de control."))));
+}
+
+// ---------- Marco de la Aplicación ----------
+const VISTAS = {
+  cliente: [["mis", "Mis Pedidos Corporativos"], ["nuevo", "+ Nuevo Pedido"]],
+  administrador: [["bandeja", "Torre de Control (HITL)"], ["calibracion", "Gobernanza & Calibración"]],
+  almacen: [["faltantes", "Supply Chain & Almacén"]],
+  auditor: [["calibracion", "Gobernanza & Calibración"]],
+};
+
+const NOMBRE_ROL = {
+  cliente: "Cliente Corporativo",
+  administrador: "Administrador Global",
+  almacen: "Supply & Almacén",
+  auditor: "Auditor de IA",
+};
+
+let vistaActual = null;
+let sondeo = null;
+let contenedor = null;
+let navBotones = {};
+let simulando = false;
+
+function detenerSondeo() { if (sondeo) { clearInterval(sondeo); sondeo = null; } }
+function sondear(fn, ms = 3500) { detenerSondeo(); sondeo = setInterval(() => fn().catch(() => {}), ms); }
+
+// Acción: Simulación 1-Click Multi-Empresa
+async function dispararSimulacion(btn) {
+  if (simulando) return;
+  simulando = true;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "⚡ Simulando pedidos...";
+    btn.classList.add("anim-pulso");
+  }
+  aviso("Ejecutando simulación de pedidos multi-empresa con agentes IA...", "info");
+  try {
+    const res = await api("/demo/simular", { method: "POST" });
+    const total = res.total || res.pedidos_simulados?.length || 4;
+    aviso(`¡Éxito! Se generaron ${total} pedidos de distintas empresas (Entel, BCP, Interbank, Claro).`, "ok");
+    // Refrescar vista activa
+    if (vistaActual) irA(vistaActual);
+  } catch (err) {
+    aviso("Error al simular: " + err.message, "error");
+  } finally {
+    simulando = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = "";
+      btn.append(h("span", { class: "rayo" }, "⚡"), document.createTextNode(" Simulación Altoque"));
+      btn.classList.remove("anim-pulso");
+    }
+  }
+}
+
+function iniciarApp() {
+  const vistas = VISTAS[sesion.rol] || [];
+  navBotones = {};
+  
+  const nav = h("nav", { "aria-label": "Secciones de la plataforma" }, vistas.map(([clave, titulo]) => {
+    const b = h("button", { onclick: () => irA(clave) }, titulo);
+    navBotones[clave] = b;
+    return b;
+  }));
+
+  const btnSimulacion = h("button", {
+    type: "button",
+    class: "btn btn-simulacion",
+    title: "Genera automáticamente 4 pedidos multiempresa (Entel, BCP, Interbank, Claro) con procesamiento multiagente",
+    onclick: () => dispararSimulacion(btnSimulacion),
+  }, h("span", { class: "rayo" }, "⚡"), document.createTextNode(" Simulación Altoque"));
+
+  const empActual = resolverEmpresa(sesion.id);
+
+  contenedor = h("main", { class: "contenedor-principal" });
+  $raiz().replaceChildren(
+    h("header", { class: "barra-enterprise" },
+      h("div", { class: "barra-left" },
+        h("div", { class: "marca-enterprise" },
+          h("div", { class: "logo-plataforma" }, "GO"),
+          h("div", { class: "marca-texto" },
+            h("div", { class: "marca-nombre" }, "Gerald Enterprise OS"),
+            h("span", { class: "marca-tag" }, "Multi-Agent Platform"))),
+        nav),
+      h("div", { class: "barra-right" },
+        btnSimulacion,
+        h("div", { class: "separador-v" }),
+        h("div", { class: "tenant-pill" },
+          sesion.rol === "cliente" ? [
+            h("span", { class: "tenant-icono" }, empActual.icono),
+            h("span", { class: "tenant-nombre" }, empActual.nombre),
+          ] : [
+            h("span", { class: "tenant-icono" }, "🌐"),
+            h("span", { class: "tenant-nombre" }, "Global Multi-Tenant"),
+          ]),
+        h("div", { class: "usuario-chip" },
+          h("span", { class: "chip-rol" }, NOMBRE_ROL[sesion.rol]),
+          h("span", { class: "usuario-id mono" }, sesion.id)),
+        h("button", { class: "btn btn-texto btn-salir", onclick: cerrarSesion, title: "Cerrar sesión o cambiar de empresa" }, "Cambiar Rol"))),
+    contenedor);
+    
+  irA(vistas[0][0]);
+}
+
+function irA(clave, extra) {
+  detenerSondeo();
+  vistaActual = clave;
+  Object.entries(navBotones).forEach(([k, b]) => {
+    if (k === clave) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
+  contenedor.replaceChildren();
+  ({ nuevo: vistaNuevo, mis: vistaMis, bandeja: vistaBandeja, calibracion: vistaCalibracion, faltantes: vistaFaltantes })[clave](extra);
+}
+
+function cabecera(titulo, subtitulo, ...derecha) {
+  return h("div", { class: "cabecera-enterprise" },
+    h("div", { class: "cabecera-titulos" },
+      h("h2", {}, titulo),
+      subtitulo && h("p", { class: "cabecera-sub" }, subtitulo)),
+    h("div", { class: "cabecera-acciones" }, derecha));
+}
+
+function vacio(icono, titulo, texto) {
+  return h("div", { class: "estado-vacio" },
+    h("div", { class: "vacio-icono", "aria-hidden": "true" }, icono),
+    h("strong", {}, titulo),
+    h("p", {}, texto));
+}
+
+// ---------- CLIENTE: Nuevo Pedido ----------
+let catalogo = null;
+async function obtenerCatalogo() {
+  if (!catalogo) catalogo = (await api("/catalogo")).prendas;
+  return catalogo;
+}
+
+// Plantillas predefinidas corporativas
+const PLANTILLAS_CORP = [
+  {
+    nombre: "Dotación Operativa (45 Polos L, 20 Casacas M)",
+    lineas: [
+      { prenda: "polo", talla: "L", color: "Azul Corporativo", cantidad: 45 },
+      { prenda: "casaca", talla: "M", color: "Azul Noche", cantidad: 20 },
+    ],
+    notas: "Lote de uniformes para personal en campo. Logo bordado en pecho izquierdo.",
+  },
+  {
+    nombre: "Evento Deportivo / Maratón (60 Polos S, 30 Shorts M)",
+    lineas: [
+      { prenda: "polo", talla: "S", color: "Verde Institucional", cantidad: 60 },
+      { prenda: "short", talla: "M", color: "Negro", cantidad: 30 },
+    ],
+    notas: "Dotación para olimpiadas corporativas interbancarias.",
+  },
+  {
+    nombre: "Campaña Ejecutiva (25 Casacas M)",
+    lineas: [
+      { prenda: "casaca", talla: "M", color: "Negro Mate", cantidad: 25 },
+    ],
+    notas: "Casacas térmicas impermeables con cierre termosellado.",
+  },
+];
+
+async function vistaNuevo(prellenado) {
+  const prendas = await obtenerCatalogo();
+  const nombres = Object.keys(prendas);
+  const lineas = [];
+  const cajaLineas = h("div", { class: "lineas-pedido" });
+  const resumen = h("ul", { class: "resumen-lista" });
+  const totalPrendas = h("strong", {}, "0");
+  let archivo = null;
+
+  function refrescarResumen() {
+    const datos = lineas.map((l) => l.leer());
+    resumen.replaceChildren(...datos.filter((d) => d.cantidad > 0).map((d) =>
+      h("li", {},
+        h("span", {}, `${d.prenda} · ${d.talla} · ${d.color || "sin color"}`),
+        h("strong", {}, d.cantidad))));
+    if (!resumen.children.length) resumen.append(h("li", { class: "mute" }, "Agregue al menos una prenda"));
+    totalPrendas.textContent = datos.reduce((s, d) => s + (d.cantidad || 0), 0);
+  }
+
+  function agregarLinea(inicial = {}) {
+    const prenda = h("select", { "aria-label": "Prenda" }, nombres.map((n) => h("option", { value: n }, n[0].toUpperCase() + n.slice(1))));
+    const talla = h("select", { "aria-label": "Talla" });
+    const color = h("input", { type: "text", placeholder: "Ej. Azul Corporativo", maxlength: 40, value: inicial.color || "" });
+    const cantidad = h("input", { type: "number", min: 1, max: 1000, value: inicial.cantidad || 10 });
+    
+    const llenarTallas = () => {
+      const previa = talla.value || inicial.talla;
+      talla.replaceChildren(...prendas[prenda.value].map((t) => h("option", { value: t }, t)));
+      if (prendas[prenda.value].includes(previa)) talla.value = previa;
+    };
+    if (inicial.prenda && prendas[inicial.prenda]) prenda.value = inicial.prenda;
+    llenarTallas();
+
+    const fila = h("div", { class: "linea-fila" },
+      h("label", { class: "campo" }, h("span", {}, "Prenda"), prenda),
+      h("label", { class: "campo" }, h("span", {}, "Talla"), talla),
+      h("label", { class: "campo" }, h("span", {}, "Color Corporativo"), color),
+      h("label", { class: "campo" }, h("span", {}, "Cantidad"), cantidad),
+      h("button", {
+        type: "button", class: "btn btn-texto quitar", title: "Quitar prenda",
+        onclick: () => { if (lineas.length > 1) { lineas.splice(lineas.indexOf(registro), 1); fila.remove(); refrescarResumen(); } },
+      }, "✕"));
+
+    const registro = {
+      leer: () => ({ prenda: prenda.value, talla: talla.value, color: color.value.trim(), cantidad: parseInt(cantidad.value, 10) || 0 }),
+      fijar: (d) => {
+        if (d.prenda && prendas[d.prenda]) { prenda.value = d.prenda; llenarTallas(); }
+        if (d.talla) talla.value = d.talla;
+        if (d.color) color.value = d.color;
+        if (d.cantidad) cantidad.value = d.cantidad;
+      },
+    };
+    prenda.addEventListener("change", () => { llenarTallas(); refrescarResumen(); });
+    [talla, color, cantidad].forEach((el) => el.addEventListener("input", refrescarResumen));
+    lineas.push(registro);
+    cajaLineas.append(fila);
+    refrescarResumen();
+  }
+
+  (prellenado?.lineas?.length ? prellenado.lineas : [{}]).forEach(agregarLinea);
+
+  const entradaArchivo = h("input", { type: "file", accept: "image/png,image/jpeg,application/pdf", hidden: true });
+  const previa = h("div", {});
+  const zona = h("div", {
+    class: "zona-archivo", tabindex: 0, role: "button",
+    onclick: () => entradaArchivo.click(),
+    onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); entradaArchivo.click(); } },
+    ondragover: (e) => { e.preventDefault(); zona.classList.add("sobre"); },
+    ondragleave: () => zona.classList.remove("sobre"),
+    ondrop: (e) => {
+      e.preventDefault(); zona.classList.remove("sobre");
+      if (e.dataTransfer.files[0]) fijarArchivo(e.dataTransfer.files[0]);
+    },
+  },
+  h("div", { class: "zona-icono" }, "📁"),
+  h("strong", {}, "Adjunte el boceto o ficha técnica corporativa"),
+  h("span", { class: "mute peq" }, "PNG, JPG o PDF hasta 10 MB (analizado por Agente de Visión IA)"),
+  previa);
+
+  function fijarArchivo(f) {
+    archivo = f;
+    previa.replaceChildren(
+      f.type.startsWith("image/")
+        ? h("img", { class: "vista-previa", src: URL.createObjectURL(f), alt: "Boceto seleccionado" })
+        : h("p", { class: "peq", style: "margin-top:8px;font-weight:600" }, "📄 " + f.name));
+  }
+  entradaArchivo.addEventListener("change", () => { if (entradaArchivo.files[0]) fijarArchivo(entradaArchivo.files[0]); });
+
+  const notas = h("textarea", {
+    placeholder: "Especificaciones especiales de confección, ubicación del logo, tipo de bordado o estampado, fecha deseada...",
+    value: prellenado?.notas || "",
+  });
+
+  const enviar = h("button", { class: "btn btn-primario btn-grande", type: "submit" }, "⚡ Enviar Pedido a los Agentes IA");
+
+  // Barra de plantillas
+  const botonesPlantillas = PLANTILLAS_CORP.map((plant) => h("button", {
+    type: "button", class: "btn btn-plantilla",
+    onclick: () => {
+      cajaLineas.replaceChildren();
+      lineas.length = 0;
+      plant.lineas.forEach(agregarLinea);
+      notas.value = plant.notas;
+      aviso(`Plantilla "${plant.nombre}" cargada.`, "info");
+    },
+  }, plant.nombre));
+
+  const empActual = resolverEmpresa(sesion.id);
+
+  const formulario = h("form", {
+    onsubmit: async (e) => {
+      e.preventDefault();
+      const datosLineas = lineas.map((l) => l.leer()).filter((d) => d.cantidad > 0);
+      if (!datosLineas.length) return aviso("Agregue al menos una prenda con cantidad mayor a cero", "error");
+      
+      let archivoAEnviar = archivo;
+      if (!archivoAEnviar) {
+        // En modo demostración, proveer un boceto PNG corporativo mínimo si no se subió ninguno
+        const blobVacio = new Blob([new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,1,0,0,0,1,8,6,0,0,0,31,21,99,52,0,0,0,10,73,68,65,84,120,156,99,0,1,0,0,5,0,1,13,10,45,180,0,0,0,0,73,69,78,68,174,66,96,130])], { type: "image/png" });
+        archivoAEnviar = new File([blobVacio], "boceto_corporativo.png", { type: "image/png" });
+      }
+
+      const fd = new FormData();
+      fd.append("cliente_id", sesion.id);
+      fd.append("lineas", JSON.stringify(datosLineas));
+      if (notas.value.trim()) fd.append("notas", notas.value.trim());
+      fd.append("boceto", archivoAEnviar);
+
+      enviar.disabled = true;
+      enviar.textContent = "Procesando con Agentes...";
+      try {
+        const res = await api("/pedidos", { method: "POST", body: fd });
+        aviso(`Pedido ${res.pedido_id} ingresado. Los agentes comenzaron el análisis.`, "ok");
+        irA("mis", { nuevoId: res.pedido_id });
+      } catch (err) {
+        aviso(err.message, "error");
+      } finally {
+        enviar.disabled = false;
+        enviar.textContent = "⚡ Enviar Pedido a los Agentes IA";
+      }
+    },
+  },
+  h("div", { class: "rejilla-pedido" },
+    h("div", { class: "tarjeta" },
+      h("div", { class: "tarjeta-cuerpo" },
+        h("div", { class: "plantillas-banner" },
+          h("span", { class: "mute peq" }, "⚡ Cargar plantilla corporativa rápida:"),
+          h("div", { class: "plantillas-lista" }, botonesPlantillas)),
+        h("h3", { style: "margin:16px 0 12px" }, "Prendas y Dotaciones"),
+        cajaLineas,
+        h("button", {
+          type: "button", class: "btn", style: "margin-top:14px",
+          onclick: () => agregarLinea(),
+        }, "+ Agregar otra prenda"),
+        h("h3", { style: "margin:24px 0 10px" }, "Boceto y Logotipos"),
+        entradaArchivo,
+        zona,
+        h("label", { class: "campo", style: "margin-top:16px" },
+          h("span", {}, "Notas corporativas de confección"),
+          notas))),
+    h("aside", { class: "tarjeta resumen-fijo" },
+      h("div", { class: "tarjeta-cuerpo" },
+        h("div", { class: "empresa-ficha" },
+          h("span", { class: "icono-gran" }, empActual.icono),
+          h("div", {},
+            h("strong", {}, empActual.nombre),
+            h("div", { class: "mute peq" }, `Tenant: ${sesion.id}`))),
+        h("hr", { class: "separador" }),
+        h("h3", { style: "margin-bottom:12px" }, "Resumen del Lote"),
+        resumen,
+        h("div", { class: "resumen-total" },
+          h("span", {}, "Total de Prendas"),
+          totalPrendas),
+        enviar,
+        h("p", { class: "mute peq", style: "margin-top:12px;line-height:1.4" },
+          "Al enviar, los agentes IA validarán tallas, interpretarán el boceto técnico y calcularán el presupuesto y materiales en tiempo real.")))));
+
+  contenedor.append(
+    cabecera("Nuevo Pedido Corporativo", `Generación de lote para ${empActual.nombre}`),
+    formulario);
+}
+
+// ---------- CLIENTE: Mis Pedidos ----------
+async function cargarMisPedidos() {
+  const r = await api("/pedidos");
+  return r.pedidos || [];
+}
+
+async function vistaMis(extra) {
+  let pedidos = [];
+  let elegido = extra?.nuevoId || null;
+  const avisados = new Set();
+  const empActual = resolverEmpresa(sesion.id);
+
+  const lista = h("div", { class: "lista-pedidos" });
+  const detalle = h("div", { class: "tarjeta detalle-pedido" });
+
+  contenedor.append(
+    cabecera(`Pedidos de ${empActual.nombre}`, `Gestión de pedidos y contratos del tenant ${sesion.id}`,
+      h("button", { class: "btn btn-primario", onclick: () => irA("nuevo") }, "+ Nuevo Pedido")),
+    h("div", { class: "dos-columnas" }, lista, detalle));
+
+  async function refrescar() {
+    pedidos = await cargarMisPedidos();
+    if (!elegido && pedidos.length) elegido = pedidos[0].pedido_id;
+    for (const p of pedidos) {
+      if (p.pausa?.tipo === "aceptacion_cliente" && !avisados.has(p.pedido_id)) {
+        avisados.add(p.pedido_id);
+        if (elegido === p.pedido_id) aviso("Su cotización corporativa está lista para aceptación", "ok");
+      }
+    }
+    pintarLista();
+    pintarDetalle();
+  }
+
+  function pintarLista() {
+    if (!pedidos.length) {
+      lista.replaceChildren(h("div", { class: "tarjeta" }, vacio("👕", "Aún no tiene pedidos registrados", "Haga clic en '+ Nuevo Pedido' o use '⚡ Simulación Altoque' en la barra superior.")));
+      return;
+    }
+    lista.replaceChildren(...pedidos.map((p) => h("button", {
+      class: "item-pedido", "aria-current": String(p.pedido_id === elegido),
+      onclick: () => { elegido = p.pedido_id; pintarLista(); pintarDetalle(); },
+    },
+    h("div", { class: "fila" },
+      h("strong", { class: "mono" }, p.pedido_id),
+      chipEstado(p.estado)),
+    h("span", { class: "mute peq" }, resumenLineas(p.lineas)),
+    p.pausa?.tipo === "aceptacion_cliente" && h("span", { class: "peq callout-accion" }, "Requiere su aceptación →"))));
+  }
+
+  function pintarDetalle() {
+    const p = pedidos.find((x) => x.pedido_id === elegido);
+    if (!p) { detalle.replaceChildren(vacio("📋", "Seleccione un pedido para ver el estado", "")); return; }
+    const paso = PASO_DE[p.estado] ?? 0;
+    const terminal = ["observado", "duplicado", "no_contratado", "detenido"].includes(p.estado);
+
+    const cuerpo = h("div", { class: "tarjeta-cuerpo" },
+      h("div", { class: "detalle-top-fila" },
+        h("div", {},
+          h("div", { class: "fila", style: "gap:8px;align-items:center" },
+            badgeEmpresa(p.cliente_id),
+            h("span", { class: "mute peq mono" }, p.pedido_id)),
+          h("h2", { class: "mono", style: "font-size:22px;margin-top:4px" }, p.pedido_id)),
+        chipEstado(p.estado)),
+      !terminal && h("div", { class: "pasos", role: "list" }, PASOS.map((nombre, i) =>
+        h("div", { role: "listitem", class: "paso " + (i < paso ? "hecho" : i === paso ? "actual" : "") },
+          h("div", { class: "punto" }, i < paso ? "✓" : i + 1), nombre))));
+
+    if (p.estado === "observado") {
+      cuerpo.append(h("div", { class: "aviso error" },
+        h("strong", {}, "El pedido necesita ajustes antes de continuar"),
+        h("ul", {}, (p.observaciones.length ? p.observaciones : ["Revise los datos del pedido."]).map((o) => h("li", {}, o))),
+        h("div", {}, h("button", { class: "btn btn-primario", style: "margin-top:8px",
+          onclick: () => irA("nuevo", { lineas: p.lineas, notas: p.notas }) }, "Corregir y reenviar"))));
+    } else if (p.estado === "duplicado") {
+      cuerpo.append(h("div", { class: "aviso info" }, h("strong", {}, "Este pedido ya fue registrado previamente"),
+        "El agente A0 detectó duplicidad de clave de idempotencia; siga el pedido original en su lista."));
+    } else if (p.estado === "en_revision") {
+      cuerpo.append(h("div", { class: "aviso alerta" },
+        h("strong", {}, "🔍 Pedido en revisión por el especialista humano (HITL)"),
+        "Los agentes escalaron este pedido para validación humana de materiales y cotización. Recibirá respuesta a la brevedad."));
+    } else if (p.estado === "en_produccion") {
+      cuerpo.append(h("div", { class: "aviso ok" }, h("strong", {}, "🚀 ¡Lote en confección y producción!"),
+        "Materiales 100% asegurados en almacén. Orden enviada a taller de confección."));
+    } else if (p.estado === "esperando_abastecimiento") {
+      cuerpo.append(h("div", { class: "aviso alerta" }, h("strong", {}, "📦 Pedido contratado: en espera de abastecimiento"),
+        "El almacén central está reservando los materiales restantes para iniciar la producción."));
+    } else if (EN_PROCESO.has(p.estado)) {
+      cuerpo.append(h("div", { class: "aviso info" },
+        h("strong", {}, h("span", { class: "cargando", style: "width:12px;height:12px;margin-right:8px" }), "Procesando con Agentes Inteligentes"),
+        "El grafo LangGraph ejecuta validación, visión y cálculo de insumos."));
+    }
+
+    if (p.pausa?.tipo === "aceptacion_cliente") {
+      const botones = [
+        h("button", { class: "btn btn-ok btn-grande", onclick: () => responder(true) }, "✓ Aceptar Cotización y Contratar"),
+        h("button", { class: "btn btn-peligro", onclick: () => responder(false) }, "Rechazar Cotización"),
+      ];
+      async function responder(acepta) {
+        if (!acepta && !confirm("¿Confirma que no desea contratar este pedido corporativo?")) return;
+        botones.forEach((b) => (b.disabled = true));
+        try {
+          await api(`/pedidos/${p.pedido_id}/aceptacion`, { method: "POST", json: { acepta } });
+          aviso(acepta ? "¡Contrato corporativo registrado exitosamente!" : "Pedido cerrado sin contratar.", "ok");
+          await refrescar();
+        } catch (err) { aviso(err.message, "error"); botones.forEach((b) => (b.disabled = false)); }
+      }
+      cuerpo.append(h("div", { class: "cotizacion-box" },
+        h("div", {},
+          h("span", { class: "mute peq" }, "Presupuesto Total Estimado"),
+          h("div", { class: "monto" }, soles(p.pausa.costo_total_pen))),
+        h("p", { class: "peq mute" }, "Incluye telas de grado industrial, avíos, patronaje y confección. Al aceptar, el contrato se formaliza y los materiales quedan reservados."),
+        h("div", { class: "acciones" }, botones)));
+    }
+
+    if (p.actividad?.length) {
+      cuerpo.append(h("h3", { style: "margin:18px 0 12px" }, "Actividad de los Agentes Autónomos"), lineaActividad(p.actividad));
+    }
+
+    cuerpo.append(
+      h("h3", { style: "margin:16px 0 10px" }, "Detalle del Lote"),
+      h("table", {},
+        h("thead", {}, h("tr", {}, h("th", {}, "Prenda"), h("th", {}, "Talla"), h("th", {}, "Color Corporativo"), h("th", { class: "num" }, "Cantidad"))),
+        h("tbody", {}, p.lineas.map((l) => h("tr", {}, h("td", {}, l.prenda), h("td", {}, l.talla), h("td", {}, l.color), h("td", { class: "num" }, l.cantidad)))),
+        p.costo_total_pen && !p.pausa && h("tfoot", {}, h("tr", {}, h("td", { colspan: 3 }, "Presupuesto Aprobado"), h("td", { class: "num" }, soles(p.costo_total_pen))))),
+      p.notas && h("p", { class: "mute peq", style: "margin-top:10px" }, "Notas: " + p.notas));
+
+    const cajaBoceto = h("div", { style: "margin-top:16px" });
+    cuerpo.append(cajaBoceto);
+    mostrarBoceto(p.pedido_id, cajaBoceto);
+    detalle.replaceChildren(cuerpo);
+  }
+
+  await refrescar();
+  sondear(refrescar, 3500);
+}
+
+// Línea de tiempo de los agentes LangGraph
+const SIGLA = {
+  "A0 Ingesta": "A0", "A1 Recepción": "A1", "A2 Boceto": "A2", "A3 Materiales": "A3", "A4 Registro": "A4",
+  "Orquestador": "OR", "Administrador": "AD", "Cliente": "CL", "Almacén": "AL",
+};
+const hora = (m) => m ? new Date(m).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
+function lineaActividad(actividad) {
+  return h("ol", { class: "actividad" }, actividad.map((p) => h("li", { class: `${p.carril} ${p.estado}` },
+    h("div", { class: "nodo-act", "data-agente": SIGLA[p.agente] || "", "aria-hidden": "true" }, SIGLA[p.agente] || "·"),
+    h("div", { class: "act-cuerpo" },
+      h("div", { class: "act-cab" },
+        h("strong", {}, p.agente),
+        p.carril === "humano" && h("span", { class: "chip-humano" }, "human-in-the-loop"),
+        p.estado === "esperando" && h("span", { class: "estado accion" }, "pendiente"),
+        h("span", { class: "mute peq act-hora" }, hora(p.momento))),
+      h("div", { class: "peq" }, p.detalle)))));
+}
+
+// Carga el boceto mediante token
+const cacheBocetos = new Map();
+async function mostrarBoceto(pedidoId, caja) {
+  try {
+    if (!cacheBocetos.has(pedidoId)) {
+      const r = await api(`/pedidos/${pedidoId}/boceto`);
+      cacheBocetos.set(pedidoId, { tipo: r.headers.get("content-type"), url: URL.createObjectURL(await r.blob()) });
+    }
+    const b = cacheBocetos.get(pedidoId);
+    caja.replaceChildren(
+      h("h3", { style: "margin-bottom:10px" }, "Boceto Técnico"),
+      b.tipo === "application/pdf"
+        ? h("div", { class: "boceto-pdf" }, h("a", { href: b.url, target: "_blank", rel: "noopener" }, "📄 Abrir ficha técnica (PDF)"))
+        : h("img", { class: "boceto", src: b.url, alt: "Boceto técnico de " + pedidoId }));
+  } catch { /* sin boceto */ }
+}
+
+// ---------- ADMINISTRADOR: Torre de Control HITL ----------
+async function vistaBandeja() {
+  const caja = h("div", {});
+  const contador = h("span", {});
+  let filtroEmpresa = "todas";
+  let listaPedidos = [];
+  let firma = "";
+
+  // Filtros por empresa
+  const opcionesFiltro = [
+    { clave: "todas", label: "🌐 Todas las Empresas" },
+    { clave: "C-ENTEL-PE", label: "📱 Entel Perú" },
+    { clave: "C-BANCO-BCP", label: "🏦 Banco BCP" },
+    { clave: "C-INTERBANK", label: "🟢 Interbank" },
+    { clave: "C-CLARO-PE", label: "🔴 Claro Perú" },
+  ];
+
+  const botonesFiltro = opcionesFiltro.map((f) => h("button", {
+    type: "button",
+    class: "filtro-btn" + (f.clave === filtroEmpresa ? " activo" : ""),
+    onclick: () => {
+      filtroEmpresa = f.clave;
+      botonesFiltro.forEach((b, i) => {
+        b.classList.toggle("activo", opcionesFiltro[i].clave === filtroEmpresa);
+      });
+      repintar();
+    },
+  }, f.label));
+
+  const kpis = h("div", { class: "kpi-grid" },
+    h("div", { class: "kpi-card" },
+      h("span", { class: "kpi-label" }, "🏢 Tenants Activos"),
+      h("div", { class: "kpi-valor" }, "4 Empresas"),
+      h("span", { class: "kpi-sub" }, "Entel, BCP, Interbank, Claro")),
+    h("div", { class: "kpi-card" },
+      h("span", { class: "kpi-label" }, "🤖 Orquestador"),
+      h("div", { class: "kpi-valor" }, "LangGraph"),
+      h("span", { class: "kpi-sub" }, "A0 · A1 · A2 · A3")),
+    h("div", { class: "kpi-card" },
+      h("span", { class: "kpi-label" }, "🛡️ Human-in-the-loop"),
+      h("div", { class: "kpi-valor", id: "kpi-hitl-num" }, "0 Casos"),
+      h("span", { class: "kpi-sub" }, "Supervisión de cotizaciones")),
+    h("div", { class: "kpi-card" },
+      h("span", { class: "kpi-label" }, "📊 Observabilidad"),
+      h("div", { class: "kpi-valor" }, "LangSmith"),
+      h("span", { class: "kpi-sub" }, "Traces & Calibración")));
+
+  contenedor.append(
+    cabecera("Torre de Control Multi-Empresa", "Bandeja de revisión Human-in-the-Loop (HITL) para pedidos que requieren aprobación humana.", contador),
+    kpis,
+    h("div", { class: "filtros-barra" }, botonesFiltro),
+    caja);
+
+  async function refrescar() {
+    const { pedidos } = await api("/revision");
+    listaPedidos = pedidos;
+    const nueva = pedidos.map((p) => p.pedido_id).join(",") + ":" + filtroEmpresa;
+    if (nueva === firma) return;
+    firma = nueva;
+
+    const hitlCard = document.getElementById("kpi-hitl-num");
+    if (hitlCard) hitlCard.textContent = `${pedidos.length} Casos`;
+
+    contador.replaceChildren(pedidos.length
+      ? h("span", { class: "estado alerta" }, `${pedidos.length} por revisar`)
+      : h("span", { class: "estado ok" }, "Todo al día"));
+
+    repintar();
+  }
+
+  function repintar() {
+    const filtrados = filtroEmpresa === "todas"
+      ? listaPedidos
+      : listaPedidos.filter((p) => p.cliente_id === filtroEmpresa || p.cliente_id?.includes(filtroEmpresa.replace("C-", "")));
+
+    if (!filtrados.length) {
+      caja.replaceChildren(h("div", { class: "tarjeta" },
+        vacio("✅", "Sin casos pendientes de revisión",
+          filtroEmpresa === "todas"
+            ? "Los agentes automáticos aprobaron los pedidos o no hay casos que requieran escalamiento."
+            : `No hay casos pendientes para este tenant. Pruebe 'Simulación Altoque' para generar más.`)));
+      return;
+    }
+
+    caja.replaceChildren(...filtrados.map(tarjetaRevision));
+  }
+
+  function tarjetaRevision(p) {
+    const comentario = h("textarea", { placeholder: "Comentario para el cliente corporativo (obligatorio si rechaza)", maxlength: 500 });
+    const emp = resolverEmpresa(p.cliente_id);
+    const botones = [
+      h("button", { class: "btn btn-ok", onclick: () => decidir(true) }, "✓ Aprobar Cotización y Notificar"),
+      h("button", { class: "btn btn-peligro", onclick: () => decidir(false) }, "Rechazar con Observación"),
+    ];
+
+    async function decidir(aprobado) {
+      if (!aprobado && !comentario.value.trim()) { comentario.focus(); return aviso("Escriba el motivo del rechazo para la empresa", "error"); }
+      botones.forEach((b) => (b.disabled = true));
+      try {
+        await api(`/revision/${p.pedido_id}`, { method: "POST", json: { aprobado, comentario: comentario.value.trim() } });
+        aviso(aprobado ? `Pedido ${p.pedido_id} de ${emp.nombre} aprobado: cotización remitida.` : `Observación enviada a ${emp.nombre}.`, "ok");
+        firma = "";
+        await refrescar();
+      } catch (err) { aviso(err.message, "error"); botones.forEach((b) => (b.disabled = false)); }
+    }
+
+    const boceto = h("div", {});
+    mostrarBoceto(p.pedido_id, boceto);
+    const materiales = p.materiales || [];
+
+    return h("article", { class: "tarjeta revision-card" },
+      h("div", { class: "tarjeta-cuerpo" },
+        h("div", { class: "revision-header" },
+          h("div", { class: "fila", style: "gap:10px;align-items:center" },
+            badgeEmpresa(p.cliente_id),
+            h("div", {},
+              h("h3", { class: "mono", style: "font-size:18px" }, p.pedido_id),
+              h("span", { class: "mute peq" }, `${emp.nombre} (${p.cliente_id})`))),
+          h("span", { class: "motivo-hitl" }, "⚠ " + (p.motivo || p.pausa?.motivo || "Revisión requerida").replace("Revisión requerida: ", ""))),
+        h("div", { class: "revision-grid" },
+          h("div", { class: "col-pedido" },
+            boceto,
+            h("h3", { style: "margin:14px 0 8px" }, "Prendas Solicitadas"),
+            h("ul", { style: "margin:0;padding-left:18px" }, p.lineas.map((l) => h("li", {}, `${l.cantidad} × ${l.prenda} ${l.talla} · ${l.color}`))),
+            p.notas && h("p", { class: "mute peq", style: "margin-top:8px" }, "Notas: " + p.notas)),
+          h("div", { class: "col-agentes" },
+            h("details", { class: "act-plegable", open: true },
+              h("summary", {}, "Trazabilidad de Agentes antes del escalamiento HITL"),
+              lineaActividad(p.actividad || [])),
+            h("h3", { style: "margin-bottom:8px" }, "Borrador de Insumos y Costeo"),
+            h("table", {},
+              h("thead", {}, h("tr", {}, h("th", {}, "Material"), h("th", { class: "num" }, "Cantidad"), h("th", { class: "num" }, "Precio"), h("th", { class: "num" }, "Subtotal"))),
+              h("tbody", {}, materiales.map((m) => h("tr", {},
+                h("td", {}, m.nombre, h("div", { class: "mute peq mono" }, m.material_id)),
+                h("td", { class: "num" }, `${Number(m.cantidad)} ${m.unidad}`),
+                h("td", { class: "num" }, soles(m.precio_unitario_pen)),
+                h("td", { class: "num" }, soles(m.subtotal_pen))))),
+              h("tfoot", {}, h("tr", {}, h("td", { colspan: 3 }, "Presupuesto Total"), h("td", { class: "num" }, soles(p.costo_total_pen))))),
+            h("label", { class: "campo", style: "margin-top:14px" }, h("span", {}, "Comentario para el cliente"), comentario),
+            h("div", { class: "acciones", style: "margin-top:12px" }, botones)))));
+  }
+
+  await refrescar();
+  sondear(refrescar, 4000);
+}
+
+// ---------- GOBERNANZA: Calibración ----------
+async function vistaCalibracion() {
+  const dias = h("select", { "aria-label": "Periodo de evaluación" }, [7, 30, 90].map((d) => h("option", { value: d }, `Últimos ${d} días`)));
+  const caja = h("div", {});
+  contenedor.append(
+    cabecera("Gobernanza y Calibración IA", "Monitoreo de deriva de decisiones y SLA de cotizaciones para todos los clientes corporativos.", dias),
+    caja);
+
+  async function refrescar() {
+    const r = await api("/calibracion?dias=" + dias.value);
+    const tiles = ["alta", "media", "baja"].map((nivel) => {
+      const t = r.por_confianza[nivel];
+      const exito = t.pedidos ? Math.round((t.contratados / t.pedidos) * 100) : 0;
+      return h("div", { class: "tarjeta tile" },
+        h("div", { class: "etiqueta" }, "Confianza " + nivel),
+        h("div", { class: "valor" }, t.pedidos, h("span", { class: "mute", style: "font-size:14px;font-weight:500" }, " pedidos")),
+        h("div", { class: "peq" }, `${t.contratados} contratados · ${t.fallidos} fallidos · fallo ${(t.tasa_fallo * 100).toFixed(1)} %`),
+        h("div", { class: "barra-progreso", title: `${exito}% contratados` }, h("div", { class: t.tasa_fallo > 0.05 ? "fallo" : "", style: `width:${exito}%` })));
+    });
+
+    caja.replaceChildren(
+      r.deriva
+        ? h("div", { class: "aviso error" }, h("strong", {}, "Alerta de Deriva en Evaluador LLM"), "Los pedidos catalogados con confianza alta presentan tasa de fallo > 5%. Se recomienda recalibrar prompts o umbrales.")
+        : h("div", { class: "aviso ok" }, h("strong", {}, "Modelo Calibrado y Estable"), `Se analizaron ${r.total} decisiones multiagente sin deriva en el periodo seleccionado.`),
+      h("div", { class: "tiles" }, tiles),
+      h("div", { class: "tarjeta" },
+        h("div", { class: "tarjeta-cuerpo" },
+          h("h3", { style: "margin-bottom:10px" }, "Recomendaciones de Gobernanza"),
+          r.sugerencias.length ? h("ul", { style: "margin:0;padding-left:18px" }, r.sugerencias.map((s) => h("li", {}, s))) : h("p", { class: "mute" }, "Sin observaciones pendientes. El sistema opera dentro de los rangos óptimos."))));
+  }
+
+  dias.addEventListener("change", () => refrescar().catch((e) => aviso(e.message, "error")));
+  await refrescar();
+}
+
+// ---------- ALMACÉN: Supply Chain & Faltantes ----------
+async function vistaFaltantes() {
+  const caja = h("div", {});
+  contenedor.append(cabecera("Supply Chain & Materiales", "Control de existencias y reanudación automática de órdenes detenidas por falta de insumos."), caja);
+  let firma = "";
+
+  async function refrescar() {
+    const { requerimientos } = await api("/almacen/requerimientos");
+    const nueva = JSON.stringify(requerimientos);
+    if (nueva === firma) return;
+    firma = nueva;
+    if (!requerimientos.length) {
+      caja.replaceChildren(h("div", { class: "tarjeta" }, vacio("📦", "Stock Abastecido al 100%", "Todos los pedidos activos cuentan con reservas completas de insumos.")));
+      return;
+    }
+    caja.replaceChildren(h("div", { class: "tarjeta" }, h("table", {},
+      h("thead", {}, h("tr", {}, h("th", {}, "Pedido / Tenant"), h("th", {}, "Material"), h("th", { class: "num" }, "Faltante"), h("th", { class: "num" }, "Stock Actual"), h("th", {}, "Ingreso de Insumos"))),
+      h("tbody", {}, requerimientos.map((r) => {
+        const cantidad = h("input", { type: "number", min: "0.01", step: "0.01", value: Math.ceil(Number(r.faltante)), style: "max-width:110px", "aria-label": "Cantidad ingresada" });
+        const boton = h("button", { class: "btn btn-primario", onclick: async () => {
+          const valor = Number(cantidad.value);
+          if (!(valor > 0)) return aviso("Ingrese una cantidad mayor que cero", "error");
+          boton.disabled = true;
+          try {
+            const res = await api("/almacen/ingresos", { method: "POST", json: { material_id: r.material_id, cantidad: String(valor) } });
+            const reanudados = Object.entries(res);
+            aviso(reanudados.length ? `Ingreso registrado. Pedidos reanudados: ${reanudados.map(([id, v]) => `${id} (${(ESTADOS[v.estado] || [v.estado])[0]})`).join(", ")}` : "Ingreso registrado.", "ok");
+            firma = "";
+            await refrescar();
+          } catch (err) { aviso(err.message, "error"); boton.disabled = false; }
+        } }, "Registrar Ingreso");
+        return h("tr", {},
+          h("td", { class: "mono" }, r.pedido_id),
+          h("td", {}, r.nombre || r.material_id, h("div", { class: "mute peq mono" }, r.material_id)),
+          h("td", { class: "num", style: "color:var(--error);font-weight:600" }, `${Number(r.faltante)} ${r.unidad}`),
+          h("td", { class: "num" }, `${Number(r.stock)} ${r.unidad}`),
+          h("td", {}, h("div", { style: "display:flex;gap:8px;align-items:center" }, cantidad, h("span", { class: "mute peq" }, r.unidad), boton)));
+      })))));
+  }
+
+  await refrescar();
+  sondear(refrescar, 5000);
+}
+
+// ---------- Arranque ----------
+if (sesion) iniciarApp(); else pintarLogin();
