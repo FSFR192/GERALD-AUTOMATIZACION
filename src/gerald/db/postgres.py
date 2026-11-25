@@ -52,6 +52,11 @@ class PedidosPG:
             ).fetchall()
         return [f[0] for f in filas]
 
+    def todos(self) -> list[str]:
+        with _tx(self.pool, "pedidos") as cx:
+            filas = cx.execute("SELECT pedido_id FROM pedidos ORDER BY creado_en DESC LIMIT 100").fetchall()
+        return [f[0] for f in filas]
+
     def registrar(self, pedido: PedidoEntrada, clave: str) -> None:
         try:
             with _tx(self.pool, "registro") as cx:

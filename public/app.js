@@ -209,10 +209,23 @@ async function pintarLogin() {
 
 // ---------- Marco de la Aplicación ----------
 const VISTAS = {
-  cliente: [["mis", "Mis Pedidos Corporativos"], ["nuevo", "+ Nuevo Pedido"]],
-  administrador: [["bandeja", "Torre de Control (HITL)"], ["calibracion", "Gobernanza & Calibración"]],
-  almacen: [["faltantes", "Supply Chain & Almacén"]],
-  auditor: [["calibracion", "Gobernanza & Calibración"]],
+  cliente: [["mis", "Mis Pedidos Corporativos"], ["nuevo", "+ Crear Pedido"]],
+  administrador: [
+    ["bandeja", "Torre de Control (HITL)"],
+    ["nuevo", "+ Crear Pedido"],
+    ["mis", "Todos los Pedidos"],
+    ["calibracion", "Gobernanza & Calibración"],
+  ],
+  almacen: [
+    ["faltantes", "Supply Chain & Almacén"],
+    ["nuevo", "+ Crear Pedido"],
+    ["mis", "Todos los Pedidos"],
+  ],
+  auditor: [
+    ["calibracion", "Gobernanza & Calibración"],
+    ["bandeja", "Supervisión HITL"],
+    ["mis", "Auditoría de Pedidos"],
+  ],
 };
 
 const NOMBRE_ROL = {
@@ -240,11 +253,11 @@ async function dispararSimulacion(btn) {
     btn.textContent = "⚡ Simulando pedidos...";
     btn.classList.add("anim-pulso");
   }
-  aviso("Ejecutando simulación de pedidos multi-empresa con agentes IA...", "info");
+  aviso("⚡ Ejecutando simulación de 4 pedidos multi-empresa y trazando en LangSmith...", "info");
   try {
     const res = await api("/demo/simular", { method: "POST" });
     const total = res.total || res.pedidos_simulados?.length || 4;
-    aviso(`¡Éxito! Se generaron ${total} pedidos de distintas empresas (Entel, BCP, Interbank, Claro).`, "ok");
+    aviso(`¡Éxito! Se generaron y trazaron en LangSmith ${total} pedidos (Entel, BCP, Interbank, Claro).`, "ok");
     // Refrescar vista activa
     if (vistaActual) irA(vistaActual);
   } catch (err) {
@@ -277,6 +290,14 @@ function iniciarApp() {
     onclick: () => dispararSimulacion(btnSimulacion),
   }, h("span", { class: "rayo" }, "⚡"), document.createTextNode(" Simulación Altoque"));
 
+  const btnCrearNav = h("button", {
+    type: "button",
+    class: "btn btn-primario",
+    style: "font-size:13px;padding:7px 14px",
+    title: "Personaliza y envía tu propio pedido corporativo",
+    onclick: () => irA("nuevo"),
+  }, "+ Crear Pedido");
+
   const empActual = resolverEmpresa(sesion.id);
 
   contenedor = h("main", { class: "contenedor-principal" });
@@ -290,6 +311,7 @@ function iniciarApp() {
             h("span", { class: "marca-tag" }, "Multi-Agent Platform"))),
         nav),
       h("div", { class: "barra-right" },
+        btnCrearNav,
         btnSimulacion,
         h("div", { class: "separador-v" }),
         h("div", { class: "tenant-pill" },
@@ -345,27 +367,28 @@ async function obtenerCatalogo() {
 // Plantillas predefinidas corporativas
 const PLANTILLAS_CORP = [
   {
-    nombre: "Dotación Operativa (45 Polos L, 20 Casacas M)",
-    lineas: [
-      { prenda: "polo", talla: "L", color: "Azul Corporativo", cantidad: 45 },
-      { prenda: "casaca", talla: "M", color: "Azul Noche", cantidad: 20 },
-    ],
-    notas: "Lote de uniformes para personal en campo. Logo bordado en pecho izquierdo.",
+    nombre: "📱 Entel: 45 Polos L azul entel",
+    cliente_id: "C-ENTEL-PE",
+    lineas: [{ prenda: "polo", talla: "L", color: "Azul Entel", cantidad: 45 }],
+    notas: "Uniformes corporativos sucursal Lima Centro. Bordado pecho izq.",
   },
   {
-    nombre: "Evento Deportivo / Maratón (60 Polos S, 30 Shorts M)",
-    lineas: [
-      { prenda: "polo", talla: "S", color: "Verde Institucional", cantidad: 60 },
-      { prenda: "short", talla: "M", color: "Negro", cantidad: 30 },
-    ],
-    notas: "Dotación para olimpiadas corporativas interbancarias.",
+    nombre: "🏦 BCP: 25 Casacas M azul noche",
+    cliente_id: "C-BANCO-BCP",
+    lineas: [{ prenda: "casaca", talla: "M", color: "Azul Noche", cantidad: 25 }],
+    notas: "Casacas térmicas para evento anual de innovación BCP.",
   },
   {
-    nombre: "Campaña Ejecutiva (25 Casacas M)",
-    lineas: [
-      { prenda: "casaca", talla: "M", color: "Negro Mate", cantidad: 25 },
-    ],
-    notas: "Casacas térmicas impermeables con cierre termosellado.",
+    nombre: "🟢 Interbank: 30 Shorts M verde corporativo",
+    cliente_id: "C-INTERBANK",
+    lineas: [{ prenda: "short", talla: "M", color: "Verde Corporativo", cantidad: 30 }],
+    notas: "Torneo deportivo interbancario corporativo.",
+  },
+  {
+    nombre: "🔴 Claro: 60 Polos S rojo claro",
+    cliente_id: "C-CLARO-PE",
+    lineas: [{ prenda: "polo", talla: "S", color: "Rojo Claro", cantidad: 60 }],
+    notas: "Maratón Claro 10K. Sublimación logo institucional.",
   },
 ];
 
@@ -377,6 +400,18 @@ async function vistaNuevo(prellenado) {
   const resumen = h("ul", { class: "resumen-lista" });
   const totalPrendas = h("strong", {}, "0");
   let archivo = null;
+
+  // Selector de empresa solicitante
+  const empresasLista = [
+    { id: "C-ENTEL-PE", nombre: "📱 Entel Perú S.A." },
+    { id: "C-BANCO-BCP", nombre: "🏦 Banco de Crédito BCP" },
+    { id: "C-INTERBANK", nombre: "🟢 Interbank" },
+    { id: "C-CLARO-PE", nombre: "🔴 Claro Telecom Perú" },
+    { id: "C-001", nombre: "👕 Club Deportivo Sport" },
+  ];
+  const selectEmpresa = h("select", { "aria-label": "Empresa solicitante" },
+    empresasLista.map((e) => h("option", { value: e.id, selected: e.id === sesion.id }, e.nombre))
+  );
 
   function refrescarResumen() {
     const datos = lineas.map((l) => l.leer());
@@ -457,6 +492,17 @@ async function vistaNuevo(prellenado) {
   }
   entradaArchivo.addEventListener("change", () => { if (entradaArchivo.files[0]) fijarArchivo(entradaArchivo.files[0]); });
 
+  const btnBocetoDemo = h("button", {
+    type: "button",
+    class: "btn btn-plantilla",
+    style: "margin-top:8px",
+    onclick: () => {
+      const blob = new Blob([new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,1,0,0,0,1,8,6,0,0,0,31,21,99,52,0,0,0,10,73,68,65,84,120,156,99,0,1,0,0,5,0,1,13,10,45,180,0,0,0,0,73,69,78,68,174,66,96,130])], { type: "image/png" });
+      fijarArchivo(new File([blob], "boceto_demo_corporativo.png", { type: "image/png" }));
+      aviso("✓ Boceto demo corporativo adjuntado con 1 clic.", "ok");
+    },
+  }, "✨ Usar Boceto Demo Automático (1 clic)");
+
   const notas = h("textarea", {
     placeholder: "Especificaciones especiales de confección, ubicación del logo, tipo de bordado o estampado, fecha deseada...",
     value: prellenado?.notas || "",
@@ -472,6 +518,7 @@ async function vistaNuevo(prellenado) {
       lineas.length = 0;
       plant.lineas.forEach(agregarLinea);
       notas.value = plant.notas;
+      if (plant.cliente_id) selectEmpresa.value = plant.cliente_id;
       aviso(`Plantilla "${plant.nombre}" cargada.`, "info");
     },
   }, plant.nombre));
@@ -491,17 +538,22 @@ async function vistaNuevo(prellenado) {
         archivoAEnviar = new File([blobVacio], "boceto_corporativo.png", { type: "image/png" });
       }
 
+      const clienteDestino = selectEmpresa.value || sesion.id;
+      const payload = {
+        lineas: datosLineas,
+        notas: notas.value.trim() || undefined,
+        cliente_id: clienteDestino,
+      };
+
       const fd = new FormData();
-      fd.append("cliente_id", sesion.id);
-      fd.append("lineas", JSON.stringify(datosLineas));
-      if (notas.value.trim()) fd.append("notas", notas.value.trim());
-      fd.append("boceto", archivoAEnviar);
+      fd.append("datos", JSON.stringify(payload));
+      fd.append("archivo", archivoAEnviar);
 
       enviar.disabled = true;
       enviar.textContent = "Procesando con Agentes...";
       try {
         const res = await api("/pedidos", { method: "POST", body: fd });
-        aviso(`Pedido ${res.pedido_id} ingresado. Los agentes comenzaron el análisis.`, "ok");
+        aviso(`¡Pedido ${res.pedido_id} ingresado exitosamente! Enviado a LangSmith y LangGraph.`, "ok");
         irA("mis", { nuevoId: res.pedido_id });
       } catch (err) {
         aviso(err.message, "error");
@@ -517,6 +569,10 @@ async function vistaNuevo(prellenado) {
         h("div", { class: "plantillas-banner" },
           h("span", { class: "mute peq" }, "⚡ Cargar plantilla corporativa rápida:"),
           h("div", { class: "plantillas-lista" }, botonesPlantillas)),
+        h("div", { style: "margin-bottom:18px" },
+          h("label", { class: "campo" },
+            h("span", {}, "🏢 Empresa Solicitante / Cliente Corporativo"),
+            selectEmpresa)),
         h("h3", { style: "margin:16px 0 12px" }, "Prendas y Dotaciones"),
         cajaLineas,
         h("button", {
@@ -526,6 +582,7 @@ async function vistaNuevo(prellenado) {
         h("h3", { style: "margin:24px 0 10px" }, "Boceto y Logotipos"),
         entradaArchivo,
         zona,
+        btnBocetoDemo,
         h("label", { class: "campo", style: "margin-top:16px" },
           h("span", {}, "Notas corporativas de confección"),
           notas))),
@@ -664,6 +721,23 @@ async function vistaMis(extra) {
         h("p", { class: "peq mute" }, "Incluye telas de grado industrial, avíos, patronaje y confección. Al aceptar, el contrato se formaliza y los materiales quedan reservados."),
         h("div", { class: "acciones" }, botones)));
     }
+
+    cuerpo.append(
+      h("div", { class: "tarjeta", style: "margin:18px 0;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.25)" },
+        h("div", { class: "tarjeta-cuerpo", style: "display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap" },
+          h("div", {},
+            h("div", { class: "fila", style: "gap:8px;align-items:center" },
+              h("span", { style: "font-size:18px" }, "🔬"),
+              h("strong", {}, "Observabilidad y Trazas en LangSmith")),
+            h("p", { class: "mute peq", style: "margin:4px 0 0" }, `Monitoreado bajo el proyecto "gerald-sport" · Run: pedido ${p.pedido_id}`)),
+          h("a", {
+            href: "https://smith.langchain.com/",
+            target: "_blank",
+            rel: "noopener",
+            class: "btn btn-primario",
+            style: "font-size:12.5px;padding:7px 14px",
+          }, "Ver en LangSmith ↗")))
+    );
 
     if (p.actividad?.length) {
       cuerpo.append(h("h3", { style: "margin:18px 0 12px" }, "Actividad de los Agentes Autónomos"), lineaActividad(p.actividad));

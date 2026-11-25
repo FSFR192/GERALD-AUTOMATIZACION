@@ -23,6 +23,7 @@ class DatosPedido(BaseModel):
 
     lineas: list[LineaPedido] = Field(..., min_length=1, max_length=50)
     notas: str | None = Field(default=None, max_length=500)
+    cliente_id: str | None = Field(default=None, max_length=50)
 
 
 class PedidoEntrada(BaseModel):

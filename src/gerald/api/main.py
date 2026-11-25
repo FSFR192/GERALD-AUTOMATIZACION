@@ -129,6 +129,7 @@ def portal_css():
 
 
 def _grafo():
+    configurar_trazas()
     if "grafo" not in ESTADO or "servicios" not in ESTADO:
         if settings().modo == "demo":
             from gerald.demo import construir_servicios_demo
@@ -206,31 +207,55 @@ EJEMPLO_DATOS = '{"lineas": [{"prenda": "polo", "talla": "M", "color": "azul", "
 )
 async def crear_pedido(
     tareas: BackgroundTasks,
-    datos: str = Form(..., description="JSON con las líneas del pedido", examples=[EJEMPLO_DATOS]),
-    archivo: UploadFile = File(..., description="Boceto JPG, PNG o PDF (máx. 10 MB)"),
+    datos: str = Form(None, description="JSON con las líneas del pedido"),
+    lineas: str = Form(None, description="JSON alternativo de líneas"),
+    notas: str = Form(None, description="Notas"),
+    cliente_id: str = Form(None, description="Cliente corporativo destino"),
+    archivo: UploadFile = File(None, description="Boceto JPG, PNG o PDF (máx. 10 MB)"),
+    boceto: UploadFile = File(None, description="Alias para archivo de boceto"),
     usuario: Usuario = Depends(limitar),
 ):
-    if usuario.rol != "cliente":
+    if usuario.rol not in ("cliente", "administrador"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "No autorizado")
-    try:
-        cuerpo = DatosPedido.model_validate_json(datos)
-    except ValidationError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, exc.errors(include_url=False)) from exc
-    contenido = await validar_archivo(archivo)
+
+    archivo_final = archivo or boceto
+    if archivo_final is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Se requiere adjuntar un archivo o boceto")
+
+    if datos:
+        try:
+            cuerpo = DatosPedido.model_validate_json(datos)
+        except ValidationError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, exc.errors(include_url=False)) from exc
+    elif lineas:
+        import json
+
+        try:
+            lineas_lista = json.loads(lineas)
+            cuerpo = DatosPedido(lineas=lineas_lista, notas=notas, cliente_id=cliente_id)
+        except Exception as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Error en líneas del pedido: {exc}") from exc
+    else:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Se requieren los datos o líneas del pedido")
+
+    contenido = await validar_archivo(archivo_final)
 
     pedido_id = f"P-{uuid.uuid4().hex[:10].upper()}"
     try:
-        destino = Path(settings().dir_bocetos) / f"{pedido_id}{Path(archivo.filename or '').suffix[:5]}"
+        destino = Path(settings().dir_bocetos) / f"{pedido_id}{Path(archivo_final.filename or '').suffix[:5]}"
         destino.parent.mkdir(parents=True, exist_ok=True)
         destino.write_bytes(contenido)
     except OSError:
-        destino = Path("/tmp/bocetos") / f"{pedido_id}{Path(archivo.filename or '').suffix[:5]}"
+        destino = Path("/tmp/bocetos") / f"{pedido_id}{Path(archivo_final.filename or '').suffix[:5]}"
         destino.parent.mkdir(parents=True, exist_ok=True)
         destino.write_bytes(contenido)
 
+    # Asignar cliente destino: si es admin usa el cliente especificado, sino usa usuario.id
+    cid = getattr(cuerpo, "cliente_id", None) or cliente_id or usuario.id
+
     pedido = PedidoEntrada(
         pedido_id=pedido_id,
-        cliente_id=usuario.id,
+        cliente_id=cid,
         correo_cliente=usuario.correo,
         boceto_uri=str(destino),
         boceto_sha256=hashlib.sha256(contenido).hexdigest(),
@@ -239,7 +264,7 @@ async def crear_pedido(
     )
     grafo, servicios = _grafo()
     tareas.add_task(ejecutar_pedido, grafo, pedido, servicios)
-    return {"pedido_id": pedido_id, "estado": "recibido"}
+    return {"pedido_id": pedido_id, "estado": "recibido", "cliente_id": cid}
 
 
 @app.get(
@@ -254,10 +279,13 @@ def ver_pedido(pedido_id: str, usuario: Usuario = Depends(requerir_rol("cliente"
 
 
 @app.get("/pedidos", tags=["Cliente"], summary="Mis pedidos")
-def mis_pedidos(usuario: Usuario = Depends(requerir_rol("cliente"))):
+def mis_pedidos(usuario: Usuario = Depends(requerir_rol("cliente", "administrador"))):
     _, servicios = _grafo()
-    ids = [pid for pid in servicios.pedidos.de_cliente(usuario.id) if _valores(pid)]
-    return {"pedidos": [_detalle(pid, con_materiales=False) for pid in ids]}
+    if usuario.rol == "administrador":
+        ids = [pid for pid in servicios.pedidos.todos() if _valores(pid)]
+    else:
+        ids = [pid for pid in servicios.pedidos.de_cliente(usuario.id) if _valores(pid)]
+    return {"pedidos": [_detalle(pid, con_materiales=usuario.rol == "administrador") for pid in ids]}
 
 
 @app.get("/pedidos/{pedido_id}/boceto", tags=["Cliente"], summary="Ver el boceto del pedido")

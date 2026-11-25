@@ -34,6 +34,9 @@ class PedidosMemoria:
     def de_cliente(self, cliente_id: str) -> list[str]:
         return [pid for pid, p in reversed(self.pedidos.items()) if p.get("cliente_id") == cliente_id]
 
+    def todos(self) -> list[str]:
+        return list(reversed(self.pedidos.keys()))
+
     def estado_de(self, pedido_id: str) -> str | None:
         return self.pedidos.get(pedido_id, {}).get("estado")
 
