@@ -1,6 +1,7 @@
 """API REST de Gerald Sport. Puntos de contacto humanos: crear pedido, aceptar, revisar, abastecer."""
 
 import hashlib
+import os
 import uuid
 from contextlib import asynccontextmanager
 from decimal import Decimal

@@ -2,6 +2,14 @@
   "version": 2,
   "rewrites": [
     {
+      "source": "/informe",
+      "destination": "/informe.html"
+    },
+    {
+      "source": "/informe/",
+      "destination": "/informe.html"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/index.py"
     },
