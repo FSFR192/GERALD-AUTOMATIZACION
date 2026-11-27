@@ -19,7 +19,7 @@ class LineaPedido(BaseModel):
 class DatosPedido(BaseModel):
     """Lo que envía el cliente junto al archivo del boceto."""
 
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, frozen=True)
+    model_config = ConfigDict(extra="ignore", str_strip_whitespace=True, frozen=True)
 
     lineas: list[LineaPedido] = Field(..., min_length=1, max_length=50)
     notas: str | None = Field(default=None, max_length=500)

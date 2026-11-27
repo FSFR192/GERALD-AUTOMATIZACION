@@ -156,10 +156,10 @@ async function pintarLogin() {
       botones.forEach((b, i) => b.setAttribute("aria-pressed", String(ROLES[i] === r)));
     },
   },
-  h("div", { class: "rol-card-header" },
-    h("strong", {}, r.titulo),
-    h("span", { class: "rol-empresa-tag" }, r.empresa)),
-  h("p", { class: "rol-desc" }, r.desc)));
+    h("div", { class: "rol-card-header" },
+      h("strong", {}, r.titulo),
+      h("span", { class: "rol-empresa-tag" }, r.empresa)),
+    h("p", { class: "rol-desc" }, r.desc)));
 
   const tokenInput = h("textarea", { placeholder: "Pegue aquí su JWT de acceso corporativo", rows: 3 });
   const enviar = h("button", { class: "btn btn-primario btn-grande", type: "submit" }, "Acceder a la Plataforma");
@@ -184,13 +184,13 @@ async function pintarLogin() {
       } finally { enviar.disabled = false; }
     },
   },
-  demo ? [
-    h("div", { class: "selector-roles-titulo" }, "Seleccione el perfil o empresa corporativa:"),
-    h("div", { class: "roles-grid" }, botones),
-    h("div", { class: "id-override" },
-      h("label", { class: "campo" }, h("span", {}, "Identificador de Cuenta / Tenant ID"), idInput)),
-  ] : h("label", { class: "campo" }, h("span", {}, "Token de acceso"), tokenInput),
-  enviar);
+    demo ? [
+      h("div", { class: "selector-roles-titulo" }, "Seleccione el perfil o empresa corporativa:"),
+      h("div", { class: "roles-grid" }, botones),
+      h("div", { class: "id-override" },
+        h("label", { class: "campo" }, h("span", {}, "Identificador de Cuenta / Tenant ID"), idInput)),
+    ] : h("label", { class: "campo" }, h("span", {}, "Token de acceso"), tokenInput),
+    enviar);
 
   $raiz().replaceChildren(h("div", { class: "login-contenedor" },
     h("div", { class: "login-tarjeta" },
@@ -209,29 +209,22 @@ async function pintarLogin() {
 
 // ---------- Marco de la Aplicación ----------
 const VISTAS = {
-  cliente: [
-    ["mis", "Mis Pedidos Corporativos"],
-    ["nuevo", "+ Crear Pedido"],
-    ["metricas", "📊 Arquitectura SDD & ROI"],
-  ],
+  cliente: [["mis", "Mis Pedidos Corporativos"], ["nuevo", "+ Crear Pedido"]],
   administrador: [
     ["bandeja", "Torre de Control (HITL)"],
     ["nuevo", "+ Crear Pedido"],
     ["mis", "Todos los Pedidos"],
     ["calibracion", "Gobernanza & Calibración"],
-    ["metricas", "📊 Arquitectura SDD & ROI"],
   ],
   almacen: [
     ["faltantes", "Supply Chain & Almacén"],
     ["nuevo", "+ Crear Pedido"],
     ["mis", "Todos los Pedidos"],
-    ["metricas", "📊 Arquitectura SDD & ROI"],
   ],
   auditor: [
     ["calibracion", "Gobernanza & Calibración"],
     ["bandeja", "Supervisión HITL"],
     ["mis", "Auditoría de Pedidos"],
-    ["metricas", "📊 Arquitectura SDD & ROI"],
   ],
 };
 
@@ -249,7 +242,7 @@ let navBotones = {};
 let simulando = false;
 
 function detenerSondeo() { if (sondeo) { clearInterval(sondeo); sondeo = null; } }
-function sondear(fn, ms = 3500) { detenerSondeo(); sondeo = setInterval(() => fn().catch(() => {}), ms); }
+function sondear(fn, ms = 3500) { detenerSondeo(); sondeo = setInterval(() => fn().catch(() => { }), ms); }
 
 // Acción: Simulación 1-Click Multi-Empresa
 async function dispararSimulacion(btn) {
@@ -283,7 +276,7 @@ async function dispararSimulacion(btn) {
 function iniciarApp() {
   const vistas = VISTAS[sesion.rol] || [];
   navBotones = {};
-  
+
   const nav = h("nav", { "aria-label": "Secciones de la plataforma" }, vistas.map(([clave, titulo]) => {
     const b = h("button", { onclick: () => irA(clave) }, titulo);
     navBotones[clave] = b;
@@ -334,7 +327,7 @@ function iniciarApp() {
           h("span", { class: "usuario-id mono" }, sesion.id)),
         h("button", { class: "btn btn-texto btn-salir", onclick: cerrarSesion, title: "Cerrar sesión o cambiar de empresa" }, "Cambiar Rol"))),
     contenedor);
-    
+
   irA(vistas[0][0]);
 }
 
@@ -346,14 +339,7 @@ function irA(clave, extra) {
     else b.removeAttribute("aria-current");
   });
   contenedor.replaceChildren();
-  ({
-    nuevo: vistaNuevo,
-    mis: vistaMis,
-    bandeja: vistaBandeja,
-    calibracion: vistaCalibracion,
-    faltantes: vistaFaltantes,
-    metricas: vistaMetricas,
-  })[clave](extra);
+  ({ nuevo: vistaNuevo, mis: vistaMis, bandeja: vistaBandeja, calibracion: vistaCalibracion, faltantes: vistaFaltantes })[clave](extra);
 }
 
 function cabecera(titulo, subtitulo, ...derecha) {
@@ -442,7 +428,7 @@ async function vistaNuevo(prellenado) {
     const talla = h("select", { "aria-label": "Talla" });
     const color = h("input", { type: "text", placeholder: "Ej. Azul Corporativo", maxlength: 40, value: inicial.color || "" });
     const cantidad = h("input", { type: "number", min: 1, max: 1000, value: inicial.cantidad || 10 });
-    
+
     const llenarTallas = () => {
       const previa = talla.value || inicial.talla;
       talla.replaceChildren(...prendas[prenda.value].map((t) => h("option", { value: t }, t)));
@@ -492,10 +478,10 @@ async function vistaNuevo(prellenado) {
       if (e.dataTransfer.files[0]) fijarArchivo(e.dataTransfer.files[0]);
     },
   },
-  h("div", { class: "zona-icono" }, "📁"),
-  h("strong", {}, "Adjunte el boceto o ficha técnica corporativa"),
-  h("span", { class: "mute peq" }, "PNG, JPG o PDF hasta 10 MB (analizado por Agente de Visión IA)"),
-  previa);
+    h("div", { class: "zona-icono" }, "📁"),
+    h("strong", {}, "Adjunte el boceto o ficha técnica corporativa"),
+    h("span", { class: "mute peq" }, "PNG, JPG o PDF hasta 10 MB (analizado por Agente de Visión IA)"),
+    previa);
 
   function fijarArchivo(f) {
     archivo = f;
@@ -511,7 +497,7 @@ async function vistaNuevo(prellenado) {
     class: "btn btn-plantilla",
     style: "margin-top:8px",
     onclick: () => {
-      const blob = new Blob([new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,1,0,0,0,1,8,6,0,0,0,31,21,99,52,0,0,0,10,73,68,65,84,120,156,99,0,1,0,0,5,0,1,13,10,45,180,0,0,0,0,73,69,78,68,174,66,96,130])], { type: "image/png" });
+      const blob = new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 99, 52, 0, 0, 0, 10, 73, 68, 65, 84, 120, 156, 99, 0, 1, 0, 0, 5, 0, 1, 13, 10, 45, 180, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130])], { type: "image/png" });
       fijarArchivo(new File([blob], "boceto_demo_corporativo.png", { type: "image/png" }));
       aviso("✓ Boceto demo corporativo adjuntado con 1 clic.", "ok");
     },
@@ -544,11 +530,11 @@ async function vistaNuevo(prellenado) {
       e.preventDefault();
       const datosLineas = lineas.map((l) => l.leer()).filter((d) => d.cantidad > 0);
       if (!datosLineas.length) return aviso("Agregue al menos una prenda con cantidad mayor a cero", "error");
-      
+
       let archivoAEnviar = archivo;
       if (!archivoAEnviar) {
         // En modo demostración, proveer un boceto PNG corporativo mínimo si no se subió ninguno
-        const blobVacio = new Blob([new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,1,0,0,0,1,8,6,0,0,0,31,21,99,52,0,0,0,10,73,68,65,84,120,156,99,0,1,0,0,5,0,1,13,10,45,180,0,0,0,0,73,69,78,68,174,66,96,130])], { type: "image/png" });
+        const blobVacio = new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 99, 52, 0, 0, 0, 10, 73, 68, 65, 84, 120, 156, 99, 0, 1, 0, 0, 5, 0, 1, 13, 10, 45, 180, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130])], { type: "image/png" });
         archivoAEnviar = new File([blobVacio], "boceto_corporativo.png", { type: "image/png" });
       }
 
@@ -577,45 +563,45 @@ async function vistaNuevo(prellenado) {
       }
     },
   },
-  h("div", { class: "rejilla-pedido" },
-    h("div", { class: "tarjeta" },
-      h("div", { class: "tarjeta-cuerpo" },
-        h("div", { class: "plantillas-banner" },
-          h("span", { class: "mute peq" }, "⚡ Cargar plantilla corporativa rápida:"),
-          h("div", { class: "plantillas-lista" }, botonesPlantillas)),
-        h("div", { style: "margin-bottom:18px" },
-          h("label", { class: "campo" },
-            h("span", {}, "🏢 Empresa Solicitante / Cliente Corporativo"),
-            selectEmpresa)),
-        h("h3", { style: "margin:16px 0 12px" }, "Prendas y Dotaciones"),
-        cajaLineas,
-        h("button", {
-          type: "button", class: "btn", style: "margin-top:14px",
-          onclick: () => agregarLinea(),
-        }, "+ Agregar otra prenda"),
-        h("h3", { style: "margin:24px 0 10px" }, "Boceto y Logotipos"),
-        entradaArchivo,
-        zona,
-        btnBocetoDemo,
-        h("label", { class: "campo", style: "margin-top:16px" },
-          h("span", {}, "Notas corporativas de confección"),
-          notas))),
-    h("aside", { class: "tarjeta resumen-fijo" },
-      h("div", { class: "tarjeta-cuerpo" },
-        h("div", { class: "empresa-ficha" },
-          h("span", { class: "icono-gran" }, empActual.icono),
-          h("div", {},
-            h("strong", {}, empActual.nombre),
-            h("div", { class: "mute peq" }, `Tenant: ${sesion.id}`))),
-        h("hr", { class: "separador" }),
-        h("h3", { style: "margin-bottom:12px" }, "Resumen del Lote"),
-        resumen,
-        h("div", { class: "resumen-total" },
-          h("span", {}, "Total de Prendas"),
-          totalPrendas),
-        enviar,
-        h("p", { class: "mute peq", style: "margin-top:12px;line-height:1.4" },
-          "Al enviar, los agentes IA validarán tallas, interpretarán el boceto técnico y calcularán el presupuesto y materiales en tiempo real.")))));
+    h("div", { class: "rejilla-pedido" },
+      h("div", { class: "tarjeta" },
+        h("div", { class: "tarjeta-cuerpo" },
+          h("div", { class: "plantillas-banner" },
+            h("span", { class: "mute peq" }, "⚡ Cargar plantilla corporativa rápida:"),
+            h("div", { class: "plantillas-lista" }, botonesPlantillas)),
+          h("div", { style: "margin-bottom:18px" },
+            h("label", { class: "campo" },
+              h("span", {}, "🏢 Empresa Solicitante / Cliente Corporativo"),
+              selectEmpresa)),
+          h("h3", { style: "margin:16px 0 12px" }, "Prendas y Dotaciones"),
+          cajaLineas,
+          h("button", {
+            type: "button", class: "btn", style: "margin-top:14px",
+            onclick: () => agregarLinea(),
+          }, "+ Agregar otra prenda"),
+          h("h3", { style: "margin:24px 0 10px" }, "Boceto y Logotipos"),
+          entradaArchivo,
+          zona,
+          btnBocetoDemo,
+          h("label", { class: "campo", style: "margin-top:16px" },
+            h("span", {}, "Notas corporativas de confección"),
+            notas))),
+      h("aside", { class: "tarjeta resumen-fijo" },
+        h("div", { class: "tarjeta-cuerpo" },
+          h("div", { class: "empresa-ficha" },
+            h("span", { class: "icono-gran" }, empActual.icono),
+            h("div", {},
+              h("strong", {}, empActual.nombre),
+              h("div", { class: "mute peq" }, `Tenant: ${sesion.id}`))),
+          h("hr", { class: "separador" }),
+          h("h3", { style: "margin-bottom:12px" }, "Resumen del Lote"),
+          resumen,
+          h("div", { class: "resumen-total" },
+            h("span", {}, "Total de Prendas"),
+            totalPrendas),
+          enviar,
+          h("p", { class: "mute peq", style: "margin-top:12px;line-height:1.4" },
+            "Al enviar, los agentes IA validarán tallas, interpretarán el boceto técnico y calcularán el presupuesto y materiales en tiempo real.")))));
 
   contenedor.append(
     cabecera("Nuevo Pedido Corporativo", `Generación de lote para ${empActual.nombre}`),
@@ -664,11 +650,11 @@ async function vistaMis(extra) {
       class: "item-pedido", "aria-current": String(p.pedido_id === elegido),
       onclick: () => { elegido = p.pedido_id; pintarLista(); pintarDetalle(); },
     },
-    h("div", { class: "fila" },
-      h("strong", { class: "mono" }, p.pedido_id),
-      chipEstado(p.estado)),
-    h("span", { class: "mute peq" }, resumenLineas(p.lineas)),
-    p.pausa?.tipo === "aceptacion_cliente" && h("span", { class: "peq callout-accion" }, "Requiere su aceptación →"))));
+      h("div", { class: "fila" },
+        h("strong", { class: "mono" }, p.pedido_id),
+        chipEstado(p.estado)),
+      h("span", { class: "mute peq" }, resumenLineas(p.lineas)),
+      p.pausa?.tipo === "aceptacion_cliente" && h("span", { class: "peq callout-accion" }, "Requiere su aceptación →"))));
   }
 
   function pintarDetalle() {
@@ -693,8 +679,10 @@ async function vistaMis(extra) {
       cuerpo.append(h("div", { class: "aviso error" },
         h("strong", {}, "El pedido necesita ajustes antes de continuar"),
         h("ul", {}, (p.observaciones.length ? p.observaciones : ["Revise los datos del pedido."]).map((o) => h("li", {}, o))),
-        h("div", {}, h("button", { class: "btn btn-primario", style: "margin-top:8px",
-          onclick: () => irA("nuevo", { lineas: p.lineas, notas: p.notas }) }, "Corregir y reenviar"))));
+        h("div", {}, h("button", {
+          class: "btn btn-primario", style: "margin-top:8px",
+          onclick: () => irA("nuevo", { lineas: p.lineas, notas: p.notas })
+        }, "Corregir y reenviar"))));
     } else if (p.estado === "duplicado") {
       cuerpo.append(h("div", { class: "aviso info" }, h("strong", {}, "Este pedido ya fue registrado previamente"),
         "El agente A0 detectó duplicidad de clave de idempotencia; siga el pedido original en su lista."));
@@ -737,35 +725,24 @@ async function vistaMis(extra) {
     }
 
     cuerpo.append(
-      h("div", { class: "tarjeta", style: "margin:18px 0;background:linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(139,92,246,0.08) 100%);border:1px solid rgba(99,102,241,0.3)" },
+      h("div", { class: "tarjeta", style: "margin:18px 0;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.25)" },
         h("div", { class: "tarjeta-cuerpo", style: "display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap" },
           h("div", {},
             h("div", { class: "fila", style: "gap:8px;align-items:center" },
               h("span", { style: "font-size:18px" }, "🔬"),
-              h("strong", {}, "Observabilidad LangSmith · Deep Agent"),
-              h("span", { class: "chip", style: "background:#10b98120;color:#10b981;border:1px solid #10b98140;font-size:10.5px;padding:2px 6px" }, "CONECTADO")),
-            h("p", { class: "mute peq", style: "margin:4px 0 0" },
-              `Proyecto: `, h("strong", { style: "color:var(--texto)" }, "gerald-sport"),
-              ` · Run ID: `, h("span", { class: "mono", style: "color:#818cf8" }, `pedido ${p.pedido_id}`),
-              ` · Grafo: a0 → a1 → a2 (Vision) → a3 (Calc) → evaluar → HITL`)),
-          h("div", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" },
-            h("button", {
-              type: "button",
-              class: "btn",
-              style: "font-size:12px;padding:7px 12px",
-              onclick: () => irA("metricas"),
-            }, "📊 Métricas & ROI"),
-            h("a", {
-              href: "https://smith.langchain.com/",
-              target: "_blank",
-              rel: "noopener",
-              class: "btn btn-primario",
-              style: "font-size:12px;padding:7px 14px",
-            }, "Ver Traza en LangSmith ↗"))))
+              h("strong", {}, "Observabilidad y Trazas en LangSmith")),
+            h("p", { class: "mute peq", style: "margin:4px 0 0" }, `Monitoreado bajo el proyecto "gerald-sport" · Run: pedido ${p.pedido_id}`)),
+          h("a", {
+            href: "https://smith.langchain.com/",
+            target: "_blank",
+            rel: "noopener",
+            class: "btn btn-primario",
+            style: "font-size:12.5px;padding:7px 14px",
+          }, "Ver en LangSmith ↗")))
     );
 
     if (p.actividad?.length) {
-      cuerpo.append(h("h3", { style: "margin:18px 0 12px" }, "Actividad de los Agentes Autónomos (LangGraph)"), lineaActividad(p.actividad));
+      cuerpo.append(h("h3", { style: "margin:18px 0 12px" }, "Actividad de los Agentes Autónomos"), lineaActividad(p.actividad));
     }
 
     cuerpo.append(
@@ -791,32 +768,17 @@ const SIGLA = {
   "A0 Ingesta": "A0", "A1 Recepción": "A1", "A2 Boceto": "A2", "A3 Materiales": "A3", "A4 Registro": "A4",
   "Orquestador": "OR", "Administrador": "AD", "Cliente": "CL", "Almacén": "AL",
 };
-const TECNOLOGIA_AGENTE = {
-  "A0 Ingesta": "LangGraph Node · Idempotencia SHA-256",
-  "A1 Recepción": "Pydantic Validator · Esquema de Prendas",
-  "A2 Boceto": "Gemini Vision Multimodal · with_structured_output",
-  "A3 Materiales": "Deterministic Engine · Consumo Decimal & Stock",
-  "A4 Registro": "PostgresSaver Checkpointer · Persistencia",
-  "Orquestador": "LangGraph StateGraph · Deep Agent Cycle",
-  "Administrador": "Human-In-The-Loop (HITL) · Torre de Control",
-  "Cliente": "Carril Cliente · Aceptación 1-Clic",
-  "Almacén": "Supply Chain · Reabastecimiento de Insumos",
-};
 const hora = (m) => m ? new Date(m).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
 function lineaActividad(actividad) {
   return h("ol", { class: "actividad" }, actividad.map((p) => h("li", { class: `${p.carril} ${p.estado}` },
     h("div", { class: "nodo-act", "data-agente": SIGLA[p.agente] || "", "aria-hidden": "true" }, SIGLA[p.agente] || "·"),
     h("div", { class: "act-cuerpo" },
-      h("div", { class: "act-cab", style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap" },
+      h("div", { class: "act-cab" },
         h("strong", {}, p.agente),
-        h("span", {
-          class: "badge-tech",
-          title: "Componente LangChain / LangGraph utilizado"
-        }, TECNOLOGIA_AGENTE[p.agente] || "LangChain Runnable"),
         p.carril === "humano" && h("span", { class: "chip-humano" }, "human-in-the-loop"),
         p.estado === "esperando" && h("span", { class: "estado accion" }, "pendiente"),
-        h("span", { class: "mute peq act-hora", style: "margin-left:auto" }, hora(p.momento))),
-      h("div", { class: "peq", style: "margin-top:4px" }, p.detalle)))));
+        h("span", { class: "mute peq act-hora" }, hora(p.momento))),
+      h("div", { class: "peq" }, p.detalle)))));
 }
 
 // Carga el boceto mediante token
@@ -1036,18 +998,20 @@ async function vistaFaltantes() {
       h("thead", {}, h("tr", {}, h("th", {}, "Pedido / Tenant"), h("th", {}, "Material"), h("th", { class: "num" }, "Faltante"), h("th", { class: "num" }, "Stock Actual"), h("th", {}, "Ingreso de Insumos"))),
       h("tbody", {}, requerimientos.map((r) => {
         const cantidad = h("input", { type: "number", min: "0.01", step: "0.01", value: Math.ceil(Number(r.faltante)), style: "max-width:110px", "aria-label": "Cantidad ingresada" });
-        const boton = h("button", { class: "btn btn-primario", onclick: async () => {
-          const valor = Number(cantidad.value);
-          if (!(valor > 0)) return aviso("Ingrese una cantidad mayor que cero", "error");
-          boton.disabled = true;
-          try {
-            const res = await api("/almacen/ingresos", { method: "POST", json: { material_id: r.material_id, cantidad: String(valor) } });
-            const reanudados = Object.entries(res);
-            aviso(reanudados.length ? `Ingreso registrado. Pedidos reanudados: ${reanudados.map(([id, v]) => `${id} (${(ESTADOS[v.estado] || [v.estado])[0]})`).join(", ")}` : "Ingreso registrado.", "ok");
-            firma = "";
-            await refrescar();
-          } catch (err) { aviso(err.message, "error"); boton.disabled = false; }
-        } }, "Registrar Ingreso");
+        const boton = h("button", {
+          class: "btn btn-primario", onclick: async () => {
+            const valor = Number(cantidad.value);
+            if (!(valor > 0)) return aviso("Ingrese una cantidad mayor que cero", "error");
+            boton.disabled = true;
+            try {
+              const res = await api("/almacen/ingresos", { method: "POST", json: { material_id: r.material_id, cantidad: String(valor) } });
+              const reanudados = Object.entries(res);
+              aviso(reanudados.length ? `Ingreso registrado. Pedidos reanudados: ${reanudados.map(([id, v]) => `${id} (${(ESTADOS[v.estado] || [v.estado])[0]})`).join(", ")}` : "Ingreso registrado.", "ok");
+              firma = "";
+              await refrescar();
+            } catch (err) { aviso(err.message, "error"); boton.disabled = false; }
+          }
+        }, "Registrar Ingreso");
         return h("tr", {},
           h("td", { class: "mono" }, r.pedido_id),
           h("td", {}, r.nombre || r.material_id, h("div", { class: "mute peq mono" }, r.material_id)),
@@ -1059,242 +1023,6 @@ async function vistaFaltantes() {
 
   await refrescar();
   sondear(refrescar, 5000);
-}
-
-// ---------- VISTA: Arquitectura SDD & Evaluación Financiera ----------
-function vistaMetricas() {
-  const btnLangSmith = h("a", {
-    href: "https://smith.langchain.com/",
-    target: "_blank",
-    rel: "noopener",
-    class: "btn btn-primario",
-    style: "font-size:12.5px;padding:7px 14px",
-  }, "🔬 Abrir LangSmith Cloud ↗");
-
-  const btnInforme = h("a", {
-    href: "/informe",
-    target: "_blank",
-    rel: "noopener",
-    class: "btn",
-    style: "font-size:12.5px;padding:7px 14px",
-  }, "📄 Ver Informe HTML");
-
-  const kpis = h("div", { class: "kpi-grid" },
-    h("div", { class: "kpi-card" },
-      h("span", { class: "kpi-label" }, "ROI a 3 Años"),
-      h("div", { class: "kpi-valor", style: "color:var(--ok)" }, "596.6%"),
-      h("span", { class: "kpi-sub" }, "Retorno de casi 6x la inversión inicial")),
-    h("div", { class: "kpi-card" },
-      h("span", { class: "kpi-label" }, "VAN (WACC r=12%)"),
-      h("div", { class: "kpi-valor", style: "color:var(--primario)" }, "+$43,485"),
-      h("span", { class: "kpi-sub" }, "Valor Actual Neto descontado (USD)")),
-    h("div", { class: "kpi-card" },
-      h("span", { class: "kpi-label" }, "TCO a 3 Años"),
-      h("div", { class: "kpi-valor" }, "$31,820", h("span", { class: "mute peq", style: "font-size:14px;font-weight:normal" }, " USD")),
-      h("span", { class: "kpi-sub" }, "64% ahorro vs $88,500 USD tradicional")),
-    h("div", { class: "kpi-card" },
-      h("span", { class: "kpi-label" }, "Payback / Retorno"),
-      h("div", { class: "kpi-valor", style: "color:var(--alerta)" }, "5.1", h("span", { class: "mute peq", style: "font-size:14px;font-weight:normal" }, " Meses")),
-      h("span", { class: "kpi-sub" }, "Recuperación acelerada del CAPEX")),
-    h("div", { class: "kpi-card" },
-      h("span", { class: "kpi-label" }, "Velocidad de Cotización"),
-      h("div", { class: "kpi-valor", style: "color:var(--info)" }, "1.5s"),
-      h("span", { class: "kpi-sub" }, "Reducción del 99.9% vs 72-120 hrs")),
-    h("div", { class: "kpi-card" },
-      h("span", { class: "kpi-label" }, "Capacidad Mensual"),
-      h("div", { class: "kpi-valor" }, "> 1,500"),
-      h("span", { class: "kpi-sub" }, "Lotes multi-empresa simultáneos"))
-  );
-
-  let pestanaActiva = "finanzas";
-  const cuerpoContenido = h("div", {});
-
-  const pestanas = [
-    ["finanzas", "💰 Finanzas: ROI, TCO & VAN"],
-    ["it1", "🔄 Iteración 1: Organización & BPMN"],
-    ["it2", "🚀 Iteración 2: Deep Agent & Multi-Tenant"],
-    ["despliegue", "🏗️ Despliegue & Componentes"],
-  ];
-
-  const barraPestanas = h("div", { class: "pestanas-barra" }, pestanas.map(([id, label]) => {
-    const btn = h("button", {
-      type: "button",
-      class: `pestana-btn ${id === pestanaActiva ? "activa" : ""}`,
-      onclick: () => {
-        pestanaActiva = id;
-        barraPestanas.querySelectorAll(".pestana-btn").forEach((b, idx) => {
-          b.classList.toggle("activa", pestanas[idx][0] === id);
-        });
-        renderPestana();
-      },
-    }, label);
-    return btn;
-  }));
-
-  function renderPestana() {
-    cuerpoContenido.replaceChildren();
-
-    if (pestanaActiva === "finanzas") {
-      cuerpoContenido.append(
-        h("div", { class: "tarjeta", style: "margin-bottom:20px" },
-          h("div", { class: "tarjeta-cuerpo" },
-            h("h3", { style: "margin-bottom:12px" }, "Comparativa de Costos Operativos: Modelo Tradicional vs. Gerald Enterprise OS"),
-            h("p", { class: "mute peq", style: "margin-bottom:16px" }, "Análisis financiero riguroso a 3 años para un volumen de 1,000 lotes/mes con 5 corporaciones clientes conectadas."),
-            h("table", {},
-              h("thead", {},
-                h("tr", {},
-                  h("th", {}, "Rubro / Concepto de Costo"),
-                  h("th", { class: "num" }, "Modelo Tradicional (Manual)"),
-                  h("th", { class: "num" }, "Gerald Enterprise OS (Agentes IA)"),
-                  h("th", { class: "num" }, "Ahorro / Impacto Anual"))),
-              h("tbody", {},
-                h("tr", {},
-                  h("td", {}, h("strong", {}, "Personal de Cotización y Diseño"), h("div", { class: "mute peq" }, "2 cotizadores ($2,500/m) + 1 diseñador ($2,800/m) vs 1 supervisor HITL parcial")),
-                  h("td", { class: "num mono" }, "$25,000 USD/año"),
-                  h("td", { class: "num mono", style: "color:var(--ok)" }, "$6,000 USD/año"),
-                  h("td", { class: "num mono", style: "color:var(--ok);font-weight:700" }, "-$19,000 USD/año")),
-                h("tr", {},
-                  h("td", {}, h("strong", {}, "Mermas por Errores de Cálculo"), h("div", { class: "mute peq" }, "Desperdicio de tela dry-fit e hilo por estimaciones manuales aproximadas")),
-                  h("td", { class: "num mono" }, "$4,500 USD/año"),
-                  h("td", { class: "num mono", style: "color:var(--ok)" }, "$0 USD/año (Recetas Deterministas Decimal)"),
-                  h("td", { class: "num mono", style: "color:var(--ok);font-weight:700" }, "-$4,500 USD/año")),
-                h("tr", {},
-                  h("td", {}, h("strong", {}, "Infraestructura Cloud Serverless"), h("div", { class: "mute peq" }, "Vercel Edge ($20/m) + Postgres Cloud ($25/m)")),
-                  h("td", { class: "num mono" }, "$0"),
-                  h("td", { class: "num mono" }, "$540 USD/año"),
-                  h("td", { class: "num mono" }, "+$540 USD/año")),
-                h("tr", {},
-                  h("td", {}, h("strong", {}, "Consumo API LLM & Observabilidad"), h("div", { class: "mute peq" }, "Gemini Flash Vision ($35/m) + LangSmith Team ($40/m)")),
-                  h("td", { class: "num mono" }, "$0"),
-                  h("td", { class: "num mono" }, "$900 USD/año"),
-                  h("td", { class: "num mono" }, "+$900 USD/año"))),
-              h("tfoot", {},
-                h("tr", {},
-                  h("td", { style: "font-weight:700" }, "Total OPEX Anual"),
-                  h("td", { class: "num mono", style: "font-weight:700;color:var(--error)" }, "$29,500 USD/año"),
-                  h("td", { class: "num mono", style: "font-weight:700;color:var(--ok)" }, "$7,440 USD/año"),
-                  h("td", { class: "num mono", style: "font-weight:800;color:var(--ok);font-size:15px" }, "Ahorro: $22,060 USD/año")))),
-            h("hr", { class: "separador" }),
-            h("h3", { style: "margin:18px 0 10px" }, "Demostración Matemática: VAN (Valor Actual Neto) & ROI"),
-            h("div", { class: "formula-box" },
-              `Fórmula del VAN con tasa de corte WACC r = 12%:\n` +
-              `VAN = -Inversión_Inicial + [ Flujo_1 / (1 + r)^1 ] + [ Flujo_2 / (1 + r)^2 ] + [ Flujo_3 / (1 + r)^3 ]\n\n` +
-              `• Inversión Inicial (CAPEX): $9,500 USD (Desarrollo, Prompts, Graph & Seguridad)\n` +
-              `• Ahorro Neto Anual: $22,060 USD / año\n` +
-              `  - Año 1 descontado: $22,060 / (1.12)^1 = $19,696.43 USD\n` +
-              `  - Año 2 descontado: $22,060 / (1.12)^2 = $17,586.10 USD\n` +
-              `  - Año 3 descontado: $22,060 / (1.12)^3 = $15,702.19 USD\n` +
-              `• Valor Presente de Flujos (VP): $52,984.72 USD\n` +
-              `• VAN = -$9,500 + $52,984.72 = +$43,484.72 USD (¡Proyecto altamente rentable!)\n\n` +
-              `Fórmula del ROI a 3 años:\n` +
-              `ROI = ( Beneficio Neto 3 Años - Inversión Inicial ) / Inversión Inicial\n` +
-              `ROI = ( ($22,060 * 3) - $9,500 ) / $9,500 = ($66,180 - $9,500) / $9,500 = 596.63%\n` +
-              `Payback: $9,500 / ($22,060 / 12) = 5.1 meses.`)))
-      );
-    } else if (pestanaActiva === "it1") {
-      cuerpoContenido.append(
-        h("div", { class: "tarjeta", style: "margin-bottom:20px" },
-          h("div", { class: "tarjeta-cuerpo" },
-            h("h3", {}, "Iteración 1: Automatización del Núcleo Organizacional (Single Business)"),
-            h("p", { class: "mute peq", style: "margin:6px 0 16px" }, "Diseño inicial enfocado en resolver el cuello de botella textil de Gerald Sport bajo metodología SDD."),
-            h("div", { style: "display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;margin-bottom:16px" },
-              h("div", { style: "background:var(--superficie-2);padding:14px;border-radius:var(--radio);border:1px solid var(--borde)" },
-                h("strong", { style: "color:#818cf8" }, "📜 Constitución (Definida por el Humano)"),
-                h("ul", { style: "padding-left:18px;margin-top:8px;font-size:13px;line-height:1.5" },
-                  h("li", {}, "Determinismo matemático: ningún LLM alucina precios ni metros de tela."),
-                  h("li", {}, "Tolerancia cero al sobregiro de inventario sin alerta a almacén."),
-                  h("li", {}, "Human-In-The-Loop obligatorio para confianza baja o costos > S/ 1,500."),
-                  h("li", {}, "Cero pedidos duplicados mediante idempotencia SHA-256."))),
-              h("div", { style: "background:var(--superficie-2);padding:14px;border-radius:var(--radio);border:1px solid var(--borde)" },
-                h("strong", { style: "color:#10b981" }, "🔄 Mapeo de Procesos (BPMN As-Is vs To-Be)"),
-                h("ul", { style: "padding-left:18px;margin-top:8px;font-size:13px;line-height:1.5" },
-                  h("li", {}, "AS-IS: Correo manual, hojas Excel, inspección física en 3 a 5 días."),
-                  h("li", {}, "TO-BE: Carril cliente con cotización 1-clic en 1.5 segundos."),
-                  h("li", {}, "Carril almacén: Solo interviene ante quiebres de insumos."),
-                  h("li", {}, "Carril administrador: Intervención por excepción (supervisión HITL).")))),
-            h("h4", { style: "margin:16px 0 8px" }, "Especificaciones Técnicas (P01 a P07 Revisadas por el Humano)"),
-            h("table", {},
-              h("thead", {}, h("tr", {}, h("th", {}, "Esp."), h("th", {}, "Nombre"), h("th", {}, "Contrato / Componente"), h("th", {}, "Estado"))),
-              h("tbody", {},
-                h("tr", {}, h("td", { class: "mono" }, "P01"), h("td", {}, "Ingesta & Normalización"), h("td", { class: "mute peq mono" }, "PedidoEntrada, SHA-256 idempotencia"), h("td", { style: "color:var(--ok)" }, "✓ Validado")),
-                h("tr", {}, h("td", { class: "mono" }, "P02"), h("td", {}, "Visión Multimodal"), h("td", { class: "mute peq mono" }, "Gemini Vision + with_structured_output"), h("td", { style: "color:var(--ok)" }, "✓ Validado")),
-                h("tr", {}, h("td", { class: "mono" }, "P03"), h("td", {}, "Cálculo Determinista"), h("td", { class: "mute peq mono" }, "Motor recetas textiles en Decimal"), h("td", { style: "color:var(--ok)" }, "✓ Validado")),
-                h("tr", {}, h("td", { class: "mono" }, "P04"), h("td", {}, "Evaluador de Política"), h("td", { class: "mute peq mono" }, "Decision (coherente, confianza, puntaje)"), h("td", { style: "color:var(--ok)" }, "✓ Validado")),
-                h("tr", {}, h("td", { class: "mono" }, "P05"), h("td", {}, "Persistencia y Checkpoints"), h("td", { class: "mute peq mono" }, "MemorySaver / PostgresSaver"), h("td", { style: "color:var(--ok)" }, "✓ Validado")),
-                h("tr", {}, h("td", { class: "mono" }, "P06"), h("td", {}, "Notificaciones Desacopladas"), h("td", { class: "mute peq mono" }, "NotificadorCorreo / NotificadorMemoria"), h("td", { style: "color:var(--ok)" }, "✓ Validado")),
-                h("tr", {}, h("td", { class: "mono" }, "P07"), h("td", {}, "Seguridad & Observabilidad"), h("td", { class: "mute peq mono" }, "JWT HS256, Magic Bytes, LangSmith"), h("td", { style: "color:var(--ok)" }, "✓ Validado")))),
-            h("div", { style: "margin-top:16px;padding:12px 16px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:var(--radio);display:flex;align-items:center;gap:10px" },
-              h("span", { style: "font-size:20px" }, "✅"),
-              h("div", { class: "peq" }, h("strong", {}, "Validación de Iteración 1: "), "19 pruebas unitarias y de integración superadas exitosamente con pytest."))))
-      );
-    } else if (pestanaActiva === "it2") {
-      cuerpoContenido.append(
-        h("div", { class: "tarjeta", style: "margin-bottom:20px" },
-          h("div", { class: "tarjeta-cuerpo" },
-            h("h3", {}, "Iteración 2: Identificación del Deep Agent & Escalado Multi-Tenant"),
-            h("p", { class: "mute peq", style: "margin:6px 0 16px" }, "Evolución a plataforma corporativa B2B (Gerald Enterprise OS) con agentes autónomos y gobernanza en LangSmith."),
-            h("div", { style: "display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;margin-bottom:16px" },
-              h("div", { style: "background:var(--superficie-2);padding:14px;border-radius:var(--radio);border:1px solid var(--borde)" },
-                h("strong", { style: "color:#38bdf8" }, "🧠 Definición del Deep Agent"),
-                h("ul", { style: "padding-left:18px;margin-top:8px;font-size:13px;line-height:1.5" },
-                  h("li", {}, "Máquina de estados cíclica implementada en LangGraph StateGraph."),
-                  h("li", {}, "Memoria transaccional con EstadoPedido tipado."),
-                  h("li", {}, "Percepción multimodal con Gemini Vision y Structured Outputs."),
-                  h("li", {}, "Auto-reflexión y evaluación de coherencia con derivación HITL."),
-                  h("li", {}, "Telemetría completa de latencias y tokens en LangSmith."))),
-              h("div", { style: "background:var(--superficie-2);padding:14px;border-radius:var(--radio);border:1px solid var(--borde)" },
-                h("strong", { style: "color:#f59e0b" }, "🏢 Arquitectura Multi-Tenant Corporativa"),
-                h("ul", { style: "padding-left:18px;margin-top:8px;font-size:13px;line-height:1.5" },
-                  h("li", {}, "Entel Perú (C-ENTEL-PE): Lotes técnicos y fibra azul."),
-                  h("li", {}, "Banco BCP (C-BANCO-BCP): Casacas térmicas azul noche."),
-                  h("li", {}, "Interbank (C-INTERBANK): Shorts y polos para eventos."),
-                  h("li", {}, "Claro Perú (C-CLARO-PE): Dotación de distribución."),
-                  h("li", {}, "Aislamiento criptográfico en JWT con validación en cada endpoint.")))),
-            h("h4", { style: "margin:16px 0 8px" }, "Constitución & Gobernanza Multi-Empresa"),
-            h("p", { class: "mute peq", style: "margin-bottom:12px" }, "Las empresas tienen visibilidad exclusiva de sus pedidos y cotizaciones. Ningún tenant puede consultar información ajena. Toda la actividad de los agentes queda auditada e indexada en LangSmith bajo el proyecto 'gerald-sport'."),
-            h("div", { style: "padding:14px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.25);border-radius:var(--radio);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap" },
-              h("div", {},
-                h("strong", { style: "font-size:14px" }, "🔬 Monitoreo de Producción en LangSmith Cloud"),
-                h("div", { class: "mute peq", style: "margin-top:4px" }, "Proyecto: gerald-sport · Trazas verificadas: a0_ingesta, a1_recepcion, a2_boceto, a3_calcular, evaluar, HITL.")),
-              h("a", { href: "https://smith.langchain.com/", target: "_blank", rel: "noopener", class: "btn btn-primario", style: "font-size:12px;padding:7px 14px" }, "Ir a LangSmith ↗"))))
-      );
-    } else if (pestanaActiva === "despliegue") {
-      cuerpoContenido.append(
-        h("div", { class: "tarjeta", style: "margin-bottom:20px" },
-          h("div", { class: "tarjeta-cuerpo" },
-            h("h3", {}, "Arquitectura de Despliegue Cloud & Componentes del Sistema"),
-            h("p", { class: "mute peq", style: "margin:6px 0 16px" }, "Diagrama de capas integradas: Frontend SPA, Vercel Edge Serverless, Seguridad RBAC, Deep Agent LangGraph y Servicios Cloud."),
-            h("div", { style: "display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:14px;margin-bottom:16px" },
-              h("div", { style: "border:1px solid var(--borde);padding:14px;border-radius:var(--radio);background:var(--superficie)" },
-                h("div", { style: "font-size:12px;font-weight:700;color:var(--primario);text-transform:uppercase" }, "Capa 1: Frontend SPA"),
-                h("strong", { style: "display:block;margin:4px 0" }, "Gerald Enterprise OS"),
-                h("p", { class: "mute peq" }, "Vanilla JS, CSS modular, selector Multi-Tenant, creador de pedidos a 1-clic y simulación inmediata.")),
-              h("div", { style: "border:1px solid var(--borde);padding:14px;border-radius:var(--radio);background:var(--superficie)" },
-                h("div", { style: "font-size:12px;font-weight:700;color:var(--info);text-transform:uppercase" }, "Capa 2: Edge & Runtime"),
-                h("strong", { style: "display:block;margin:4px 0" }, "Vercel Serverless Function"),
-                h("p", { class: "mute peq" }, "FastAPI Python 3.12, enrutamiento limpio, middleware CORS y almacenamiento elástico /tmp.")),
-              h("div", { style: "border:1px solid var(--borde);padding:14px;border-radius:var(--radio);background:var(--superficie)" },
-                h("div", { style: "font-size:12px;font-weight:700;color:var(--alerta);text-transform:uppercase" }, "Capa 3: Deep Agent Core"),
-                h("strong", { style: "display:block;margin:4px 0" }, "LangGraph StateGraph"),
-                h("p", { class: "mute peq" }, "Máquina de estados cíclica, Pydantic schemas, motor de stock en Decimal y compuertas HITL.")),
-              h("div", { style: "border:1px solid var(--borde);padding:14px;border-radius:var(--radio);background:var(--superficie)" },
-                h("div", { style: "font-size:12px;font-weight:700;color:var(--ok);text-transform:uppercase" }, "Capa 4: Cloud & Observabilidad"),
-                h("strong", { style: "display:block;margin:4px 0" }, "Gemini & LangSmith"),
-                h("p", { class: "mute peq" }, "Gemini Flash Multimodal para visión, PostgreSQL transaccional y trazas completas en LangSmith."))),
-            h("div", { style: "text-align:center;margin-top:20px" },
-              h("a", { href: "/informe", target: "_blank", rel: "noopener", class: "btn btn-primario", style: "padding:10px 20px" }, "📄 Abrir Informe Completo de Arquitectura LangChain (HTML)"))))
-      );
-    }
-  }
-
-  renderPestana();
-
-  contenedor.append(
-    cabecera("Arquitectura SDD & Evaluación Financiera", "Metodología Spec-Driven Development · Iteración 1 & 2 · Cálculos de ROI, TCO, VAN y Deep Agent en LangGraph", btnLangSmith, btnInforme),
-    kpis,
-    barraPestanas,
-    cuerpoContenido
-  );
 }
 
 // ---------- Arranque ----------

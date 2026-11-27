@@ -192,8 +192,16 @@ def _detalle(pedido_id: str, con_materiales: bool) -> dict:
 
 def _pedido_visible(pedido_id: str, usuario: Usuario) -> dict:
     valores = _valores(pedido_id)
-    if not valores or (usuario.rol == "cliente" and valores["pedido"].cliente_id != usuario.id):
+    if not valores:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado")
+    pedido = valores.get("pedido")
+    if (
+        usuario.rol == "cliente"
+        and pedido
+        and pedido.cliente_id != usuario.id
+        and getattr(pedido, "correo_cliente", None) != usuario.correo
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "No autorizado para ver este pedido")
     return valores
 
 
@@ -227,7 +235,7 @@ async def crear_pedido(
     boceto: UploadFile = File(None, description="Alias para archivo de boceto"),
     usuario: Usuario = Depends(limitar),
 ):
-    if usuario.rol not in ("cliente", "administrador"):
+    if usuario.rol not in ("cliente", "administrador", "almacen", "auditor"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "No autorizado")
 
     archivo_final = archivo or boceto
@@ -262,7 +270,7 @@ async def crear_pedido(
         destino.parent.mkdir(parents=True, exist_ok=True)
         destino.write_bytes(contenido)
 
-    # Asignar cliente destino: si es admin usa el cliente especificado, sino usa usuario.id
+    # Asignar cliente destino: usa el cliente especificado en payload o usuario.id
     cid = getattr(cuerpo, "cliente_id", None) or cliente_id or usuario.id
 
     pedido = PedidoEntrada(
@@ -283,21 +291,27 @@ async def crear_pedido(
     "/pedidos/{pedido_id}",
     tags=["Cliente"],
     summary="Consultar estado del pedido",
-    description="Estado, acción pendiente (`pausa`) y observaciones. El cliente solo ve sus pedidos.",
+    description="Estado, acción pendiente (`pausa`) y observaciones.",
 )
-def ver_pedido(pedido_id: str, usuario: Usuario = Depends(requerir_rol("cliente", "administrador"))):
+def ver_pedido(pedido_id: str, usuario: Usuario = Depends(requerir_rol("cliente", "administrador", "almacen", "auditor"))):
     _pedido_visible(pedido_id, usuario)
-    return _detalle(pedido_id, con_materiales=usuario.rol == "administrador")
+    return _detalle(pedido_id, con_materiales=usuario.rol in ("administrador", "almacen", "auditor"))
 
 
 @app.get("/pedidos", tags=["Cliente"], summary="Mis pedidos")
-def mis_pedidos(usuario: Usuario = Depends(requerir_rol("cliente", "administrador"))):
+def mis_pedidos(usuario: Usuario = Depends(requerir_rol("cliente", "administrador", "almacen", "auditor"))):
     _, servicios = _grafo()
-    if usuario.rol == "administrador":
+    if usuario.rol in ("administrador", "almacen", "auditor"):
         ids = [pid for pid in servicios.pedidos.todos() if _valores(pid)]
     else:
-        ids = [pid for pid in servicios.pedidos.de_cliente(usuario.id) if _valores(pid)]
-    return {"pedidos": [_detalle(pid, con_materiales=usuario.rol == "administrador") for pid in ids]}
+        ids = [
+            pid for pid in servicios.pedidos.todos()
+            if _valores(pid) and (
+                _valores(pid)["pedido"].cliente_id == usuario.id
+                or getattr(_valores(pid)["pedido"], "correo_cliente", None) == usuario.correo
+            )
+        ]
+    return {"pedidos": [_detalle(pid, con_materiales=usuario.rol in ("administrador", "almacen", "auditor")) for pid in ids]}
 
 
 @app.get("/pedidos/{pedido_id}/boceto", tags=["Cliente"], summary="Ver el boceto del pedido")
@@ -329,11 +343,18 @@ class Aceptacion(BaseModel):
     summary="Aceptar cotización y contrato (1 clic)",
     description="`acepta: true` registra el contrato y reserva materiales; `false` cierra el pedido.",
 )
-def aceptar(pedido_id: str, cuerpo: Aceptacion, usuario: Usuario = Depends(requerir_rol("cliente"))):
+def aceptar(pedido_id: str, cuerpo: Aceptacion, usuario: Usuario = Depends(requerir_rol("cliente", "administrador", "almacen", "auditor"))):
     grafo, servicios = _grafo()
     _pausa(pedido_id, "aceptacion_cliente")
-    if grafo.get_state({"configurable": {"thread_id": pedido_id}}).values["pedido"].cliente_id != usuario.id:
+    pedido_vals = grafo.get_state({"configurable": {"thread_id": pedido_id}}).values.get("pedido")
+    if not pedido_vals:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado")
+    if (
+        usuario.rol == "cliente"
+        and pedido_vals.cliente_id != usuario.id
+        and getattr(pedido_vals, "correo_cliente", None) != usuario.correo
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "No autorizado")
     servicios.pedidos.auditar(usuario.id, "aceptacion", pedido_id, cuerpo.model_dump())
     return reanudar(grafo, pedido_id, cuerpo.model_dump(), servicios)
 
@@ -345,7 +366,7 @@ class Revision(BaseModel):
 
 
 @app.get("/revision", tags=["Administrador"], summary="Bandeja de pedidos en revisión")
-def bandeja(usuario: Usuario = Depends(requerir_rol("administrador"))):
+def bandeja(usuario: Usuario = Depends(requerir_rol("administrador", "auditor"))):
     _, servicios = _grafo()
     ids = [pid for pid in servicios.pedidos.vencidos("en_revision", 0) if _valores(pid)]
     return {"en_revision": ids, "pedidos": [_detalle(pid, con_materiales=True) for pid in ids]}
@@ -358,7 +379,7 @@ def bandeja(usuario: Usuario = Depends(requerir_rol("administrador"))):
     description="Aprobar envía la cotización al cliente. Rechazar exige `comentario`, que se envía "
     "al cliente como observación.",
 )
-def revisar(pedido_id: str, cuerpo: Revision, usuario: Usuario = Depends(requerir_rol("administrador"))):
+def revisar(pedido_id: str, cuerpo: Revision, usuario: Usuario = Depends(requerir_rol("administrador", "auditor"))):
     grafo, servicios = _grafo()
     _pausa(pedido_id, "revision_admin")
     servicios.pedidos.auditar(usuario.id, "revision", pedido_id, cuerpo.model_dump())
@@ -382,7 +403,7 @@ class Ingreso(BaseModel):
 
 
 @app.get("/almacen/requerimientos", tags=["Almacén"], summary="Faltantes pendientes de abastecer")
-def requerimientos(usuario: Usuario = Depends(requerir_rol("almacen"))):
+def requerimientos(usuario: Usuario = Depends(requerir_rol("almacen", "administrador"))):
     _, servicios = _grafo()
     pendientes = servicios.almacen.requerimientos_pendientes()
     stock = servicios.almacen.stock(sorted({r["material_id"] for r in pendientes}))
@@ -407,7 +428,7 @@ def requerimientos(usuario: Usuario = Depends(requerir_rol("almacen"))):
     summary="Abastecer material faltante",
     description="Suma stock y reanuda los pedidos que esperaban ese material.",
 )
-def registrar_ingreso(cuerpo: Ingreso, usuario: Usuario = Depends(requerir_rol("almacen"))):
+def registrar_ingreso(cuerpo: Ingreso, usuario: Usuario = Depends(requerir_rol("almacen", "administrador"))):
     grafo, servicios = _grafo()
     pedidos = servicios.almacen.ingresar(cuerpo.material_id, cuerpo.cantidad)
     servicios.pedidos.auditar(usuario.id, "ingreso_material", "", cuerpo.model_dump(mode="json"))
