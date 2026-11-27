@@ -527,3 +527,25 @@ tfoot td { font-weight: 800; border-bottom: none; font-size: 15px; }
   .linea-fila { grid-template-columns: 1fr 1fr; }
   .linea-fila .quitar { grid-column: span 2; }
 }
+
+/* ---------- Pestañas y Componentes SDD / Métricas ---------- */
+.pestanas-barra {
+  display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--borde); padding-bottom: 10px; overflow-x: auto;
+}
+.pestana-btn {
+  background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio);
+  padding: 8px 16px; font-size: 13.5px; font-weight: 600; color: var(--texto-2); cursor: pointer;
+  transition: all 0.15s ease; white-space: nowrap;
+}
+.pestana-btn:hover { background: var(--superficie-2); color: var(--texto); border-color: var(--primario); }
+.pestana-btn.activa { background: var(--primario); color: #fff; border-color: var(--primario); }
+
+.formula-box {
+  background: rgba(15, 23, 42, 0.7); border: 1px solid var(--borde); border-radius: var(--radio);
+  padding: 16px 20px; font-family: var(--mono); font-size: 13px; line-height: 1.6; color: #93c5fd;
+  margin: 12px 0 16px; overflow-x: auto;
+}
+.badge-tech {
+  font-size: 11px; font-family: var(--mono); padding: 2px 7px; border-radius: 4px;
+  background: rgba(99, 102, 241, 0.12); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.28);
+}

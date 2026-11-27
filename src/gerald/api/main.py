@@ -128,6 +128,18 @@ def portal_css():
     raise HTTPException(status.HTTP_404_NOT_FOUND, "estilos.css no encontrado")
 
 
+@app.get("/informe", include_in_schema=False)
+@app.get("/informe.html", include_in_schema=False)
+def portal_informe():
+    archivo_informe = Path(__file__).resolve().parent.parent.parent / "INFORME_LANGCHAIN_GERALD_SPORT.html"
+    if archivo_informe.is_file():
+        return FileResponse(archivo_informe, media_type="text/html")
+    archivo_alt = DIR_WEB / "informe.html"
+    if archivo_alt.is_file():
+        return FileResponse(archivo_alt, media_type="text/html")
+    raise HTTPException(status.HTTP_404_NOT_FOUND, "informe.html no encontrado")
+
+
 def _grafo():
     configurar_trazas()
     if "grafo" not in ESTADO or "servicios" not in ESTADO:
